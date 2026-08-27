@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Master M/C Plan Dashboard</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="vendor/fontawesome/all.min.css">
+    <script src="vendor/chartjs/chart.umd.js"></script>
+</head>
+<body>
+
+<div class="tabs-container no-print">
+    <button class="tab-btn active" id="tabBtn-Stock" onclick="switchProcess('Stock')"><i class="fas fa-house"></i> Home</button>
+    <button class="tab-btn" id="tabBtn-BW" onclick="switchProcess('BW')">BW Process</button>
+    <button class="tab-btn" id="tabBtn-LC" onclick="switchProcess('LC')">LC Process</button>
+    <button class="tab-btn" id="tabBtn-CW" onclick="switchProcess('CW')">CW Process</button>
+</div>
+
+<div class="dashboard-container">
+    <div class="loading-overlay no-print" id="loadingOverlay">
+        <div class="skeleton-row w1"></div>
+        <div class="skeleton-row w2"></div>
+        <div class="skeleton-row w3"></div>
+        <div class="skeleton-row w4"></div>
+        <div class="skeleton-row w5"></div>
+        <div class="skeleton-row w2"></div>
+    </div>
+    <div class="header-section no-print">
+        <div class="title-area">
+            <h1 id="pageTitle"><i class="fas fa-chart-pie"></i> Daily Overview Dashboard</h1>
+            <p>
+                <span class="sync-status"><span class="sync-dot" id="syncDot"></span><span id="syncStatusTxt">กำลังเชื่อมต่อ...</span></span>
+                <span class="viewer-count" id="viewerCount" style="display:none;"><i class="fas fa-eye"></i> <span id="viewerCountNum">1</span> คนกำลังดู</span>
+                <span id="revContainer" style="display: none;">
+                    &nbsp;|&nbsp; Update: <span id="lastUpdateTxt" style="color:#0984e3; font-weight:600;">-</span> &nbsp;|&nbsp;
+                    Rev. <input type="text" id="revInput" value="00" onchange="onRevChange()" style="width: 45px; text-align: center; border: 1px solid #ccc; border-radius: 6px; padding: 3px; outline:none;" readonly>
+                </span>
+            </p>
+        </div>
+        <div class="controls-area">
+            <input type="text" id="searchInput" class="search-input no-print" placeholder="ค้นหา Model..." style="display:none;" oninput="filterModels(this.value)">
+            <input type="date" class="date-picker" id="startDatePicker" value="2026-08-25">
+            <div class="toggle-btn-group" id="viewToggleGroup" style="display: none;">
+                <button class="toggle-btn" id="btn1Day" onclick="setViewDays(1)">1 Day</button>
+                <button class="toggle-btn active" id="btn7Days" onclick="setViewDays(7)">1 Week</button>
+                <button class="toggle-btn" id="btn30Days" onclick="setViewDays(30)">1 Month</button>
+            </div>
+            <button class="btn-save no-print" id="saveBtn" onclick="saveToServer()" style="display:none;" disabled><i class="fas fa-save"></i> บันทึก</button>
+            <div class="bell-wrap no-print">
+                <button class="btn-bell" id="bellBtn" onclick="toggleBellPanel()" title="การอัปเดตล่าสุด">
+                    <i class="fas fa-bell"></i>
+                    <span class="bell-badge" id="bellBadge" style="display:none;">0</span>
+                </button>
+                <div class="bell-panel" id="bellPanel" style="display:none;">
+                    <div class="bell-panel-header">การอัปเดตล่าสุด</div>
+                    <div class="bell-panel-list" id="bellPanelList"></div>
+                </div>
+            </div>
+            <div class="more-menu-wrap no-print">
+                <button class="btn-bell" id="moreMenuBtn" onclick="toggleMoreMenu()" title="ตัวเลือกเพิ่มเติม"><i class="fas fa-ellipsis-v"></i></button>
+                <div class="more-menu-panel" id="moreMenuPanel" style="display:none;">
+                    <button class="more-menu-item" id="hideEmptyBtn" onclick="toggleHideEmptyModels()" style="display:none;"><i class="fas fa-eye-slash"></i> ซ่อน Model ว่าง</button>
+                    <button class="more-menu-item" id="exportCsvBtn" onclick="exportCSV()" style="display:none;"><i class="fas fa-file-csv"></i> Export CSV</button>
+                    <button class="more-menu-item" onclick="openPrintPreview()"><i class="fas fa-file-pdf"></i> Export PDF</button>
+                    <button class="more-menu-item" id="kioskBtn" onclick="toggleKioskMode()"><i class="fas fa-tv"></i> โหมดจอรวม/ทีวี</button>
+                    <button class="more-menu-item" id="manageUsersBtn" onclick="openManageUsers()" style="display:none;"><i class="fas fa-users-cog"></i> จัดการผู้ใช้งาน</button>
+                    <button class="more-menu-item" id="manageBomBtn" onclick="openManageBom()" style="display:none;"><i class="fas fa-diagram-project"></i> จัดการแหล่งวัตถุดิบ (BOM)</button>
+                </div>
+            </div>
+            <button class="btn-login" id="adminBtn" onclick="toggleAdmin()"><i class="fas fa-lock"></i> Login</button>
+        </div>
+        <button class="kiosk-exit-btn no-print" onclick="exitKioskMode()" title="ออกจากโหมดจอรวม (กด Esc ก็ได้)"><i class="fas fa-compress"></i></button>
+    </div>
+
+    <div class="print-only-header">
+        <h2 id="printTitle">Daily Overview Dashboard</h2>
+        <p>Date: <span id="headerDisplayDate"></span> <span id="printRevArea" style="display:none;">&nbsp;|&nbsp; Update: <span id="printUpdateTxt">-</span> &nbsp;|&nbsp; Rev.<span id="printRevTxt">00</span></span></p>
+    </div>
+
+    <!-- Announcements (หน้าหลัก/Stock เท่านั้น, view โดยทุกคน, แก้ไขได้เฉพาะ Admin) -->
+    <div class="announcements-card no-print" id="announcementsCard" style="display:none;">
+        <div class="announcements-header">
+            <h3><i class="fas fa-bullhorn"></i> ประกาศ</h3>
+            <button class="btn-action btn-add no-print" id="addAnnouncementBtn" onclick="addAnnouncement()" style="display:none;"><i class="fas fa-plus"></i> เพิ่มประกาศ</button>
+        </div>
+        <div class="announcements-list" id="announcementsList"></div>
+    </div>
+
+    <!-- Overview Dashboard Section -->
+    <div id="overviewContainer" class="overview-container">
+        <div class="chart-card">
+            <h3>BW Process</h3>
+            <div class="chart-wrapper">
+                <canvas id="chart-BW"></canvas>
+                <div class="chart-center-text"><span class="chart-center-label">Total M/C</span><span id="center-BW">0</span></div>
+            </div>
+            <div class="trend-row" id="trend-BW"></div>
+            <div class="stat-box" id="stat-BW">No data</div>
+        </div>
+        <div class="chart-card">
+            <h3>LC Process</h3>
+            <div class="chart-wrapper">
+                <canvas id="chart-LC"></canvas>
+                <div class="chart-center-text"><span class="chart-center-label">Total M/C</span><span id="center-LC">0</span></div>
+            </div>
+            <div class="trend-row" id="trend-LC"></div>
+            <div class="stat-box" id="stat-LC">No data</div>
+        </div>
+        <div class="chart-card">
+            <h3>CW Process</h3>
+            <div class="chart-wrapper">
+                <canvas id="chart-CW"></canvas>
+                <div class="chart-center-text"><span class="chart-center-label">Total M/C</span><span id="center-CW">0</span></div>
+            </div>
+            <div class="trend-row" id="trend-CW"></div>
+            <div class="stat-box" id="stat-CW">No data</div>
+        </div>
+    </div>
+
+    <!-- Table Section -->
+    <div id="tableContainer" class="table-container">
+        <div class="table-responsive">
+            <table id="mainTable">
+                <thead id="tableHead"></thead>
+                <!-- Table Body Generated Here -->
+            </table>
+        </div>
+    </div>
+
+    <!-- Stock / Inventory Section -->
+    <div id="stockContainer" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom: 14px;">
+            <div class="toggle-btn-group no-print" id="stockProcessFilterGroup">
+                <button class="toggle-btn active" onclick="setStockProcessFilter('All', this)">All</button>
+                <button class="toggle-btn" onclick="setStockProcessFilter('BW', this)">BW</button>
+                <button class="toggle-btn" onclick="setStockProcessFilter('LC', this)">LC</button>
+                <button class="toggle-btn" onclick="setStockProcessFilter('CW', this)">CW</button>
+            </div>
+            <button class="toggle-btn no-print" id="stockProblemsOnlyBtn" onclick="toggleStockProblemsOnly()" title="โชว์เฉพาะ Model ที่สต็อกมีปัญหา (Low/Critical)">
+                <i class="fas fa-triangle-exclamation"></i> เฉพาะที่มีปัญหา
+            </button>
+        </div>
+        <div class="stock-kpi-row" id="stockKpiRow"></div>
+        <div class="table-responsive">
+            <table id="stockTable">
+                <thead>
+                    <tr>
+                        <th style="text-align:left;">Process</th>
+                        <th style="text-align:left;">Model</th>
+                        <th>Current Stock<br><span style="font-weight:400; font-size:10px; text-transform:none;">(จำนวนชิ้น/Pcs)</span></th>
+                        <th>นับล่าสุด<br><span style="font-weight:400; font-size:10px; text-transform:none;">(เมื่อไหร่/ใคร)</span></th>
+                        <th>Planned Used<br><span style="font-weight:400; font-size:10px; text-transform:none;">(จำนวนชิ้น/Pcs — กรอกเอง)</span></th>
+                        <th>Balance</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div id="toastContainer" class="no-print"></div>
+<div id="modalRoot" class="no-print"></div>
+<div id="printPreviewRoot" class="no-print"></div>
+
+<script src="js/app.js"></script>
+</body>
+</html>
