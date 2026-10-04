@@ -262,16 +262,16 @@ function cwDemandOnLc(dateKey, warnings) {
 }
 
 // คืนค่า { plan: { LC: { model: { dateKey: { pcs, mc, useBy } } }, BW: { model: { dateKey: { pcs, mc } } } }, warnings: [ข้อความ] }
-// rounding: 'whole' = ปัดขึ้นเป็นเครื่องเต็ม, 'tenth' = ปัดขึ้นทีละ 0.1 เครื่อง (ตรงกับช่องกรอกที่รับทศนิยม 1 ตำแหน่ง)
+// rounding: 'half' = ปัดขึ้นทีละ 0.5 เครื่อง (ค่าเริ่มต้น ตามที่หน้างานใช้จริง เช่น 1 หรือ 1.5 เครื่อง), 'whole' = ปัดขึ้นเป็นเครื่องเต็ม
 // leadDays: ผลิต LC ล่วงหน้ากี่วันก่อน CW ใช้ (0 = วันเดียวกัน, สูงสุด = อายุงาน LC)
-function computeCascadePlan(startDate, days, rounding = 'whole', leadDays = 0) {
+function computeCascadePlan(startDate, days, rounding = 'half', leadDays = 0) {
     const plan = { LC: {}, BW: {} };
     const warnings = new Set();
     const roundMc = (mc) => {
         if (mc <= 0) return 0;
         // ตัดเศษทศนิยมจากการคำนวณ float ทิ้งก่อนปัดขึ้น (เช่น 2.0000000001 ไม่ควรกลายเป็น 3 เครื่อง)
         const clean = Math.round(mc * 1e6) / 1e6;
-        return rounding === 'tenth' ? Math.ceil(clean * 10) / 10 : Math.ceil(clean);
+        return rounding === 'whole' ? Math.ceil(clean) : Math.ceil(clean * 2) / 2;
     };
     leadDays = Math.max(0, Math.min(LC_SHELF_LIFE_DAYS, Math.floor(leadDays) || 0));
     const viewKeys = [];
@@ -340,7 +340,7 @@ function getViewDateKeys() {
     return keys;
 }
 
-let autoPlanRounding = 'whole';
+let autoPlanRounding = 'half';
 let autoPlanClearOthers = false;
 let autoPlanLeadDays = 0;
 function openAutoPlan() {
@@ -380,8 +380,8 @@ function renderAutoPlanModal() {
                     ใช้จำนวนเครื่อง CW ที่กรอกไว้ (${dateKeys[0]} ถึง ${dateKeys[dateKeys.length - 1]}) × OA/MCT/Hrs ของแต่ละกลุ่ม แล้วไล่ตาม BOM (CW → LC → BW) และอัตราส่วน
                 </p>
                 <div style="display:flex; gap:16px; flex-wrap:wrap; font-size:13px; margin-bottom:8px;">
+                    <label><input type="radio" name="apRound" ${autoPlanRounding === 'half' ? 'checked' : ''} onchange="autoPlanRounding='half'; renderAutoPlanModal();"> ปัดขึ้นทีละ 0.5 เครื่อง</label>
                     <label><input type="radio" name="apRound" ${autoPlanRounding === 'whole' ? 'checked' : ''} onchange="autoPlanRounding='whole'; renderAutoPlanModal();"> ปัดขึ้นเป็นเครื่องเต็ม</label>
-                    <label><input type="radio" name="apRound" ${autoPlanRounding === 'tenth' ? 'checked' : ''} onchange="autoPlanRounding='tenth'; renderAutoPlanModal();"> ปัดขึ้นทีละ 0.1 เครื่อง</label>
                     <label><input type="checkbox" ${autoPlanClearOthers ? 'checked' : ''} onchange="autoPlanClearOthers=this.checked;"> ล้างค่าเดิมของ Model ที่ไม่มีความต้องการ</label>
                     <label>ผลิต LC ก่อน CW ใช้ <input type="number" min="0" max="${LC_SHELF_LIFE_DAYS}" step="1" value="${autoPlanLeadDays}" style="width:52px;" onchange="autoPlanLeadDays=Math.max(0, Math.min(${LC_SHELF_LIFE_DAYS}, parseInt(this.value, 10) || 0)); renderAutoPlanModal();"> วัน</label>
                 </div>
