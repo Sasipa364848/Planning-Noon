@@ -215,6 +215,217 @@ function updateBomRatio(key, inputEl) {
     markKeyDirty('sourceMap', key);
 }
 
+// === Auto Plan: ใส่จำนวนเครื่อง CW แล้วให้ระบบคำนวณย้อนเป็นทอดๆ ว่า LC และ BW ต้องใช้กี่เครื่อง ===
+// ไล่จากปลายน้ำขึ้นไปต้นน้ำตามสาย BOM (sourceMap): CW -> LC -> BW
+// 1) Pcs ที่ CW ผลิตได้ = เครื่อง × (Hrs × 3600 / MCT × OA%) ตามค่า OA/MCT/Hrs ของกลุ่ม CW นั้นในวันนั้น
+// 2) Pcs ที่ LC ต้องผลิต = Pcs ของ CW ทุกโมเดลที่ชี้มา LC ตัวเดียวกัน × อัตราส่วน (BOM) รวมกัน
+// 3) เครื่อง LC = Pcs ที่ต้องผลิต ÷ Pcs ต่อเครื่องต่อวันของกลุ่ม LC นั้น แล้วทำซ้ำแบบเดียวกันจาก LC ไป BW (BW ผลิตวันเดียวกับ LC)
+// ใช้ Pcs ที่ "ต้องการจริง" (ยังไม่ปัด) ส่งต่อไปชั้นถัดไป เพื่อไม่ให้การปัดเครื่องขึ้นของ LC ไปพอก demand ของ BW เกินจริง
+// อายุงาน LC: ผลิตแล้วใช้ได้ไม่เกิน LC_SHELF_LIFE_DAYS วัน — งาน LC ที่ CW ใช้วันที่ D ต้องผลิตในช่วง D-14 ถึง D
+// ระบบผลิตก่อนวันใช้ตาม "Lead time" ที่ตั้ง และถ้าวันนั้น LC หยุด (Hrs/Day = 0) จะเลื่อนไปผลิตวันทำงานก่อนหน้า แต่ไม่เกินอายุงาน
+const LC_SHELF_LIFE_DAYS = 14;
+
+function findGroupOfModel(proc, model) {
+    const g = processConfig[proc].groups.find(gr => (modelState[gr.id] || []).includes(model));
+    return g ? g.id : null;
+}
+
+function getGroupHrs(proc, groupId, dateKey) {
+    const hrs = parseFloat(hrsData[`${proc}_${groupId}_${dateKey}`]);
+    return isNaN(hrs) ? 18 : hrs;
+}
+
+// Pcs ต่อ 1 เครื่องต่อวัน (ไม่ปัดเศษ) ของกลุ่มหนึ่งในวันหนึ่ง — สูตรเดียวกับ calcPcs()
+function pcsPerMachine(proc, groupId, dateKey) {
+    const p = getParams(groupId);
+    const hrs = getGroupHrs(proc, groupId, dateKey);
+    if (p.mct <= 0 || hrs <= 0) return 0;
+    return (hrs * 3600 / p.mct) * (p.oa / 100);
+}
+
+function addDays(date, n) { const d = new Date(date); d.setDate(d.getDate() + n); return d; }
+
+// Pcs ที่ CW ต้องการจากแต่ละโมเดล LC ในวันหนึ่ง (ยังไม่สนว่า LC จะผลิตวันไหน)
+function cwDemandOnLc(dateKey, warnings) {
+    const demand = {};
+    processConfig.CW.groups.forEach(g => {
+        (modelState[g.id] || []).forEach(m => {
+            const mc = parseFloat(cellData[`CW_${m}_${dateKey}`]);
+            if (isNaN(mc) || mc <= 0) return;
+            const entry = sourceMap[`CW_${m}`];
+            if (!entry || !entry.srcModel) { warnings.add(`CW "${m}" ยังไม่ได้กำหนดแหล่งวัตถุดิบ (BOM) จาก LC — ไม่ถูกนำไปคำนวณ`); return; }
+            if (!findGroupOfModel('LC', entry.srcModel)) { warnings.add(`CW "${m}" ชี้ไป LC "${entry.srcModel}" ซึ่งไม่พบแล้ว (ถูกเปลี่ยนชื่อ/ลบ) — กรุณาแก้ที่เมนู BOM`); return; }
+            demand[entry.srcModel] = (demand[entry.srcModel] || 0) + mc * pcsPerMachine('CW', g.id, dateKey) * (entry.ratio || 1);
+        });
+    });
+    return demand;
+}
+
+// คืนค่า { plan: { LC: { model: { dateKey: { pcs, mc, useBy } } }, BW: { model: { dateKey: { pcs, mc } } } }, warnings: [ข้อความ] }
+// rounding: 'half' = ปัดขึ้นทีละ 0.5 เครื่อง (ค่าเริ่มต้น ตามที่หน้างานใช้จริง เช่น 1 หรือ 1.5 เครื่อง), 'whole' = ปัดขึ้นเป็นเครื่องเต็ม
+// leadDays: ผลิต LC ล่วงหน้ากี่วันก่อน CW ใช้ (0 = วันเดียวกัน, สูงสุด = อายุงาน LC)
+function computeCascadePlan(startDate, days, rounding = 'half', leadDays = 0) {
+    const plan = { LC: {}, BW: {} };
+    const warnings = new Set();
+    const roundMc = (mc) => {
+        if (mc <= 0) return 0;
+        // ตัดเศษทศนิยมจากการคำนวณ float ทิ้งก่อนปัดขึ้น (เช่น 2.0000000001 ไม่ควรกลายเป็น 3 เครื่อง)
+        const clean = Math.round(mc * 1e6) / 1e6;
+        return rounding === 'whole' ? Math.ceil(clean) : Math.ceil(clean * 2) / 2;
+    };
+    leadDays = Math.max(0, Math.min(LC_SHELF_LIFE_DAYS, Math.floor(leadDays) || 0));
+    const viewKeys = [];
+    for (let i = 0; i < days; i++) viewKeys.push(formatDateHeader(addDays(startDate, i)));
+
+    // 1) จัดวันผลิต LC: ไล่ CW ทุกวันที่ใช้งาน LC ที่ผลิตในช่วงที่แสดงได้ (มองไปข้างหน้าอีก lead + อายุงาน)
+    const lcPcs = {};   // model -> dateKey -> pcs ที่ต้องผลิต
+    for (let i = 0; i < days + LC_SHELF_LIFE_DAYS; i++) {
+        const useDate = addDays(startDate, i);
+        const useKey = formatDateHeader(useDate);
+        const demand = cwDemandOnLc(useKey, warnings);
+        Object.keys(demand).forEach(m => {
+            const groupId = findGroupOfModel('LC', m);
+            let back = leadDays;
+            while (back <= LC_SHELF_LIFE_DAYS && getGroupHrs('LC', groupId, formatDateHeader(addDays(useDate, -back))) <= 0) back++;
+            if (back > LC_SHELF_LIFE_DAYS) {
+                if (i < days) warnings.add(`LC "${m}" ที่ CW ใช้วันที่ ${useKey} ไม่มีวันทำงาน LC ภายใน ${LC_SHELF_LIFE_DAYS} วันก่อนหน้า (Hrs/Day = 0 ทั้งหมด) — ผลิตไม่ทันอายุงาน`);
+                return;
+            }
+            const buildIdx = i - back;
+            if (buildIdx >= days) return; // ผลิตหลังช่วงที่แสดง ไม่เกี่ยวกับรอบนี้
+            if (buildIdx < 0) {
+                warnings.add(`LC "${m}" ที่ CW ใช้วันที่ ${useKey} ต้องผลิตวันที่ ${formatDateHeader(addDays(startDate, buildIdx))} ซึ่งอยู่ก่อนช่วงที่แสดง — ไม่ถูกใส่ในรอบนี้`);
+                return;
+            }
+            const buildKey = viewKeys[buildIdx];
+            if (!lcPcs[m]) lcPcs[m] = {};
+            lcPcs[m][buildKey] = (lcPcs[m][buildKey] || 0) + demand[m];
+        });
+    }
+
+    // 2) เครื่อง LC ต่อวัน แล้วส่ง demand ต่อไป BW (BW ผลิตวันเดียวกับ LC)
+    viewKeys.forEach((dateKey, idx) => {
+        const bwDemand = {};
+        Object.keys(lcPcs).forEach(m => {
+            const pcs = lcPcs[m][dateKey];
+            if (!pcs) return;
+            const groupId = findGroupOfModel('LC', m);
+            const perMc = pcsPerMachine('LC', groupId, dateKey);
+            if (perMc <= 0) { warnings.add(`LC กลุ่ม ${(groupLabels[groupId] || groupId).replace(/<br>/g, ' ')} มี MCT เป็น 0 คำนวณจำนวนเครื่องไม่ได้`); return; }
+            if (!plan.LC[m]) plan.LC[m] = {};
+            plan.LC[m][dateKey] = { pcs: Math.round(pcs), mc: roundMc(pcs / perMc), useBy: formatDateHeader(addDays(startDate, idx + LC_SHELF_LIFE_DAYS)) };
+
+            const entry = sourceMap[`LC_${m}`];
+            if (!entry || !entry.srcModel) { warnings.add(`LC "${m}" ยังไม่ได้กำหนดแหล่งวัตถุดิบ (BOM) จาก BW — ไม่ถูกนำไปคำนวณ`); return; }
+            if (!findGroupOfModel('BW', entry.srcModel)) { warnings.add(`LC "${m}" ชี้ไป BW "${entry.srcModel}" ซึ่งไม่พบแล้ว (ถูกเปลี่ยนชื่อ/ลบ) — กรุณาแก้ที่เมนู BOM`); return; }
+            bwDemand[entry.srcModel] = (bwDemand[entry.srcModel] || 0) + pcs * (entry.ratio || 1);
+        });
+        Object.keys(bwDemand).forEach(m => {
+            const groupId = findGroupOfModel('BW', m);
+            const perMc = pcsPerMachine('BW', groupId, dateKey);
+            if (perMc <= 0) { warnings.add(`BW กลุ่ม ${(groupLabels[groupId] || groupId).replace(/<br>/g, ' ')} หยุดหรือ MCT เป็น 0 วันที่ ${dateKey} แต่ LC ต้องใช้งาน — คำนวณจำนวนเครื่องไม่ได้`); return; }
+            if (!plan.BW[m]) plan.BW[m] = {};
+            plan.BW[m][dateKey] = { pcs: Math.round(bwDemand[m]), mc: roundMc(bwDemand[m] / perMc) };
+        });
+    });
+    return { plan, warnings: Array.from(warnings) };
+}
+
+function getViewStartDate() { return new Date(document.getElementById('startDatePicker').value); }
+
+function getViewDateKeys() {
+    const startDate = getViewStartDate();
+    const keys = [];
+    for (let i = 0; i < viewDays; i++) keys.push(formatDateHeader(addDays(startDate, i)));
+    return keys;
+}
+
+let autoPlanRounding = 'half';
+let autoPlanClearOthers = false;
+let autoPlanLeadDays = 0;
+function openAutoPlan() {
+    if (!canEditProcess('LC') && !canEditProcess('BW')) { showToast('ต้องมีสิทธิ์แก้ไข LC หรือ BW', 'error'); return; }
+    renderAutoPlanModal();
+}
+
+function renderAutoPlanModal() {
+    const dateKeys = getViewDateKeys();
+    const { plan, warnings } = computeCascadePlan(getViewStartDate(), viewDays, autoPlanRounding, autoPlanLeadDays);
+    const sections = ['LC', 'BW'].map(proc => {
+        const rows = [];
+        processConfig[proc].groups.forEach(g => {
+            (modelState[g.id] || []).forEach(m => {
+                if (!plan[proc][m]) return;
+                const cells = dateKeys.map(dk => {
+                    const v = plan[proc][m][dk];
+                    const cur = parseFloat(cellData[`${proc}_${m}_${dk}`]) || 0;
+                    if (!v) return `<td style="color:var(--text-muted);">-${cur > 0 ? `<br><span class="autoplan-old">เดิม ${cur}</span>` : ''}</td>`;
+                    return `<td><strong>${v.mc}</strong><br><span class="autoplan-pcs">${v.pcs.toLocaleString()} pcs</span>${v.useBy ? `<br><span class="autoplan-pcs">ใช้ก่อน ${v.useBy}</span>` : ''}${cur > 0 && cur !== v.mc ? `<br><span class="autoplan-old">เดิม ${cur}</span>` : ''}</td>`;
+                }).join('');
+                rows.push(`<tr><td class="col-model" style="text-align:left;">${m}</td>${cells}</tr>`);
+            });
+        });
+        const editable = canEditProcess(proc);
+        return `<h4 style="margin:14px 0 6px;">${proc} ${editable ? '' : '<span style="font-size:11px; color:#b45309;">(ไม่มีสิทธิ์แก้ไข — แสดงอย่างเดียว)</span>'}</h4>
+            ${rows.length ? `<table class="user-mgmt-table autoplan-table"><thead><tr><th>Model</th>${dateKeys.map(dk => `<th>${dk}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table>`
+                : '<div style="font-size:12px; color:var(--text-muted);">ไม่มีความต้องการในช่วงวันที่นี้</div>'}`;
+    }).join('');
+    const warnHtml = warnings.length ? `<div class="autoplan-warn"><i class="fas fa-triangle-exclamation"></i> ${warnings.map(w => `<div>${w}</div>`).join('')}</div>` : '';
+
+    document.getElementById('modalRoot').innerHTML = `
+        <div class="modal-overlay" id="modalOverlay">
+            <div class="modal-box modal-box-wide autoplan-box">
+                <h3><i class="fas fa-wand-magic-sparkles"></i> Auto Plan — คำนวณ LC / BW จากแผน CW</h3>
+                <p style="font-size:12px; color:var(--text-secondary); margin:-8px 0 10px;">
+                    ใช้จำนวนเครื่อง CW ที่กรอกไว้ (${dateKeys[0]} ถึง ${dateKeys[dateKeys.length - 1]}) × OA/MCT/Hrs ของแต่ละกลุ่ม แล้วไล่ตาม BOM (CW → LC → BW) และอัตราส่วน
+                </p>
+                <div style="display:flex; gap:16px; flex-wrap:wrap; font-size:13px; margin-bottom:8px;">
+                    <label><input type="radio" name="apRound" ${autoPlanRounding === 'half' ? 'checked' : ''} onchange="autoPlanRounding='half'; renderAutoPlanModal();"> ปัดขึ้นทีละ 0.5 เครื่อง</label>
+                    <label><input type="radio" name="apRound" ${autoPlanRounding === 'whole' ? 'checked' : ''} onchange="autoPlanRounding='whole'; renderAutoPlanModal();"> ปัดขึ้นเป็นเครื่องเต็ม</label>
+                    <label><input type="checkbox" ${autoPlanClearOthers ? 'checked' : ''} onchange="autoPlanClearOthers=this.checked;"> ล้างค่าเดิมของ Model ที่ไม่มีความต้องการ</label>
+                    <label>ผลิต LC ก่อน CW ใช้ <input type="number" min="0" max="${LC_SHELF_LIFE_DAYS}" step="1" value="${autoPlanLeadDays}" style="width:52px;" onchange="autoPlanLeadDays=Math.max(0, Math.min(${LC_SHELF_LIFE_DAYS}, parseInt(this.value, 10) || 0)); renderAutoPlanModal();"> วัน</label>
+                </div>
+                <div style="font-size:12px; color:var(--text-secondary); margin-bottom:8px;"><i class="fas fa-hourglass-half"></i> งาน LC มีอายุ ${LC_SHELF_LIFE_DAYS} วัน: ถ้าวันที่ต้องผลิต LC หยุด (Hrs/Day = 0) ระบบจะเลื่อนไปผลิตวันทำงานก่อนหน้า แต่ไม่เกิน ${LC_SHELF_LIFE_DAYS} วันก่อนที่ CW ใช้</div>
+                ${warnHtml}
+                <div style="max-height:50vh; overflow:auto;">${sections}</div>
+                <div class="modal-actions" style="margin-top:16px;">
+                    <button class="modal-btn modal-btn-cancel" onclick="closeModal()">ปิด</button>
+                    <button class="modal-btn modal-btn-confirm" onclick="applyAutoPlan()"><i class="fas fa-check"></i> นำไปใส่ในแผน LC / BW</button>
+                </div>
+            </div>
+        </div>`;
+    document.getElementById('modalOverlay').onclick = (e) => { if (e.target.id === 'modalOverlay') closeModal(); };
+}
+
+// เขียนผลลงตาราง LC/BW ในหน้าจอ (ยังไม่บันทึกลง server จนกว่าจะกดปุ่ม "บันทึก" ตามปกติ)
+function applyAutoPlan() {
+    const dateKeys = getViewDateKeys();
+    const { plan } = computeCascadePlan(getViewStartDate(), viewDays, autoPlanRounding, autoPlanLeadDays);
+    let changed = 0;
+    ['LC', 'BW'].forEach(proc => {
+        if (!canEditProcess(proc)) return;
+        processConfig[proc].groups.forEach(g => {
+            (modelState[g.id] || []).forEach(m => {
+                dateKeys.forEach(dk => {
+                    const key = `${proc}_${m}_${dk}`;
+                    const v = plan[proc][m] && plan[proc][m][dk];
+                    let newVal;
+                    if (v) newVal = String(v.mc);
+                    else if (autoPlanClearOthers && cellData[key]) newVal = '';
+                    else return;
+                    if ((cellData[key] || '') === newVal) return;
+                    if (newVal) cellData[key] = newVal; else delete cellData[key];
+                    markKeyDirty('cellData', key);
+                    changed++;
+                });
+            });
+        });
+    });
+    closeModal();
+    rerenderCurrentView();
+    showToast(changed > 0 ? `ใส่แผนอัตโนมัติแล้ว ${changed} ช่อง — ตรวจสอบแล้วกด "บันทึก"` : 'ไม่มีช่องไหนเปลี่ยน', changed > 0 ? 'success' : 'info');
+}
+
 // ตั้งชื่อโมเดลแบบแยก 2 ช่อง (ชื่อหลัก + ชนิด/ทูลลิ่ง เช่น DSS2, EK, DSTC, Auto) — คืนค่า {base, variant} หรือ null ถ้ายกเลิก
 // ส่วนแหล่งวัตถุดิบย้ายไปจัดการรวมที่เดียวที่เมนู "จัดการแหล่งวัตถุดิบ (BOM)" แทน (openManageBom)
 function showModelNameModal(title, defaultBase = '', defaultVariant = '') {
@@ -1067,6 +1278,8 @@ function updateAdminUI() {
     let saveBtn = document.getElementById('saveBtn');
     const manageUsersBtn = document.getElementById('manageUsersBtn');
     const manageBomBtn = document.getElementById('manageBomBtn');
+    const autoPlanBtn = document.getElementById('autoPlanBtn');
+    if (autoPlanBtn) autoPlanBtn.style.display = (canEditProcess('LC') || canEditProcess('BW')) ? 'flex' : 'none';
     if (isAdmin) {
         btn.innerHTML = '<i class="fas fa-unlock"></i> Admin Mode'; btn.classList.add('logged-in');
         revInput.removeAttribute('readonly'); revInput.style.background = '#fff';
