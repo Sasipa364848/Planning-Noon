@@ -215,6 +215,160 @@ function updateBomRatio(key, inputEl) {
     markKeyDirty('sourceMap', key);
 }
 
+// === Auto Plan: ใส่จำนวนเครื่อง CW แล้วให้ระบบคำนวณย้อนเป็นทอดๆ ว่า LC และ BW ต้องใช้กี่เครื่อง ===
+// ไล่จากปลายน้ำขึ้นไปต้นน้ำตามสาย BOM (sourceMap): CW -> LC -> BW
+// 1) Pcs ที่ CW ผลิตได้ = เครื่อง × (Hrs × 3600 / MCT × OA%) ตามค่า OA/MCT/Hrs ของกลุ่ม CW นั้นในวันนั้น
+// 2) Pcs ที่ LC ต้องผลิต = Pcs ของ CW ทุกโมเดลที่ชี้มา LC ตัวเดียวกัน × อัตราส่วน (BOM) รวมกัน
+// 3) เครื่อง LC = Pcs ที่ต้องผลิต ÷ Pcs ต่อเครื่องต่อวันของกลุ่ม LC นั้น แล้วทำซ้ำแบบเดียวกันจาก LC ไป BW
+// ใช้ Pcs ที่ "ต้องการจริง" (ยังไม่ปัด) ส่งต่อไปชั้นถัดไป เพื่อไม่ให้การปัดเครื่องขึ้นของ LC ไปพอก demand ของ BW เกินจริง
+const CASCADE_STEPS = [{ from: 'CW', to: 'LC' }, { from: 'LC', to: 'BW' }];
+
+function findGroupOfModel(proc, model) {
+    const g = processConfig[proc].groups.find(gr => (modelState[gr.id] || []).includes(model));
+    return g ? g.id : null;
+}
+
+// Pcs ต่อ 1 เครื่องต่อวัน (ไม่ปัดเศษ) ของกลุ่มหนึ่งในวันหนึ่ง — สูตรเดียวกับ calcPcs()
+function pcsPerMachine(proc, groupId, dateKey) {
+    const p = getParams(groupId);
+    let hrs = parseFloat(hrsData[`${proc}_${groupId}_${dateKey}`]); if (isNaN(hrs)) hrs = 18;
+    if (p.mct <= 0 || hrs <= 0) return 0;
+    return (hrs * 3600 / p.mct) * (p.oa / 100);
+}
+
+// คืนค่า { plan: { LC: { model: { dateKey: { pcs, mc } } }, BW: {...} }, warnings: [ข้อความ] }
+// rounding: 'whole' = ปัดขึ้นเป็นเครื่องเต็ม, 'tenth' = ปัดขึ้นทีละ 0.1 เครื่อง (ตรงกับช่องกรอกที่รับทศนิยม 1 ตำแหน่ง)
+function computeCascadePlan(dateKeys, rounding = 'whole') {
+    const plan = { LC: {}, BW: {} };
+    const warnings = new Set();
+    const roundMc = (mc) => {
+        if (mc <= 0) return 0;
+        // ตัดเศษทศนิยมจากการคำนวณ float ทิ้งก่อนปัดขึ้น (เช่น 2.0000000001 ไม่ควรกลายเป็น 3 เครื่อง)
+        const clean = Math.round(mc * 1e6) / 1e6;
+        return rounding === 'tenth' ? Math.ceil(clean * 10) / 10 : Math.ceil(clean);
+    };
+
+    dateKeys.forEach(dateKey => {
+        // Pcs ที่ "ผลิตออก/ต้องการ" ของแต่ละโมเดลในชั้นปัจจุบัน — เริ่มจาก CW ที่กรอกจำนวนเครื่องเอง
+        let output = {};
+        processConfig.CW.groups.forEach(g => {
+            (modelState[g.id] || []).forEach(m => {
+                const mc = parseFloat(cellData[`CW_${m}_${dateKey}`]);
+                if (!isNaN(mc) && mc > 0) output[m] = mc * pcsPerMachine('CW', g.id, dateKey);
+            });
+        });
+
+        CASCADE_STEPS.forEach(({ from, to }) => {
+            const demand = {};
+            Object.keys(output).forEach(m => {
+                const entry = sourceMap[`${from}_${m}`];
+                if (!entry || !entry.srcModel) { warnings.add(`${from} "${m}" ยังไม่ได้กำหนดแหล่งวัตถุดิบ (BOM) จาก ${to} — ไม่ถูกนำไปคำนวณ`); return; }
+                if (!findGroupOfModel(to, entry.srcModel)) { warnings.add(`${from} "${m}" ชี้ไป ${to} "${entry.srcModel}" ซึ่งไม่พบแล้ว (ถูกเปลี่ยนชื่อ/ลบ) — กรุณาแก้ที่เมนู BOM`); return; }
+                demand[entry.srcModel] = (demand[entry.srcModel] || 0) + output[m] * (entry.ratio || 1);
+            });
+            Object.keys(demand).forEach(m => {
+                const groupId = findGroupOfModel(to, m);
+                const perMc = pcsPerMachine(to, groupId, dateKey);
+                if (perMc <= 0) { warnings.add(`${to} กลุ่ม ${(groupLabels[groupId] || groupId).replace(/<br>/g, ' ')} มี MCT/Hrs เป็น 0 คำนวณจำนวนเครื่องไม่ได้`); return; }
+                if (!plan[to][m]) plan[to][m] = {};
+                plan[to][m][dateKey] = { pcs: Math.round(demand[m]), mc: roundMc(demand[m] / perMc) };
+            });
+            output = demand;
+        });
+    });
+    return { plan, warnings: Array.from(warnings) };
+}
+
+function getViewDateKeys() {
+    const startDate = new Date(document.getElementById('startDatePicker').value);
+    const keys = [];
+    for (let i = 0; i < viewDays; i++) { const d = new Date(startDate); d.setDate(d.getDate() + i); keys.push(formatDateHeader(d)); }
+    return keys;
+}
+
+let autoPlanRounding = 'whole';
+let autoPlanClearOthers = false;
+function openAutoPlan() {
+    if (!canEditProcess('LC') && !canEditProcess('BW')) { showToast('ต้องมีสิทธิ์แก้ไข LC หรือ BW', 'error'); return; }
+    renderAutoPlanModal();
+}
+
+function renderAutoPlanModal() {
+    const dateKeys = getViewDateKeys();
+    const { plan, warnings } = computeCascadePlan(dateKeys, autoPlanRounding);
+    const sections = ['LC', 'BW'].map(proc => {
+        const rows = [];
+        processConfig[proc].groups.forEach(g => {
+            (modelState[g.id] || []).forEach(m => {
+                if (!plan[proc][m]) return;
+                const cells = dateKeys.map(dk => {
+                    const v = plan[proc][m][dk];
+                    const cur = parseFloat(cellData[`${proc}_${m}_${dk}`]) || 0;
+                    if (!v) return `<td style="color:var(--text-muted);">-${cur > 0 ? `<br><span class="autoplan-old">เดิม ${cur}</span>` : ''}</td>`;
+                    return `<td><strong>${v.mc}</strong><br><span class="autoplan-pcs">${v.pcs.toLocaleString()} pcs</span>${cur > 0 && cur !== v.mc ? `<br><span class="autoplan-old">เดิม ${cur}</span>` : ''}</td>`;
+                }).join('');
+                rows.push(`<tr><td class="col-model" style="text-align:left;">${m}</td>${cells}</tr>`);
+            });
+        });
+        const editable = canEditProcess(proc);
+        return `<h4 style="margin:14px 0 6px;">${proc} ${editable ? '' : '<span style="font-size:11px; color:#b45309;">(ไม่มีสิทธิ์แก้ไข — แสดงอย่างเดียว)</span>'}</h4>
+            ${rows.length ? `<table class="user-mgmt-table autoplan-table"><thead><tr><th>Model</th>${dateKeys.map(dk => `<th>${dk}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table>`
+                : '<div style="font-size:12px; color:var(--text-muted);">ไม่มีความต้องการในช่วงวันที่นี้</div>'}`;
+    }).join('');
+    const warnHtml = warnings.length ? `<div class="autoplan-warn"><i class="fas fa-triangle-exclamation"></i> ${warnings.map(w => `<div>${w}</div>`).join('')}</div>` : '';
+
+    document.getElementById('modalRoot').innerHTML = `
+        <div class="modal-overlay" id="modalOverlay">
+            <div class="modal-box modal-box-wide autoplan-box">
+                <h3><i class="fas fa-wand-magic-sparkles"></i> Auto Plan — คำนวณ LC / BW จากแผน CW</h3>
+                <p style="font-size:12px; color:var(--text-secondary); margin:-8px 0 10px;">
+                    ใช้จำนวนเครื่อง CW ที่กรอกไว้ (${dateKeys[0]} ถึง ${dateKeys[dateKeys.length - 1]}) × OA/MCT/Hrs ของแต่ละกลุ่ม แล้วไล่ตาม BOM (CW → LC → BW) และอัตราส่วน
+                </p>
+                <div style="display:flex; gap:16px; flex-wrap:wrap; font-size:13px; margin-bottom:8px;">
+                    <label><input type="radio" name="apRound" ${autoPlanRounding === 'whole' ? 'checked' : ''} onchange="autoPlanRounding='whole'; renderAutoPlanModal();"> ปัดขึ้นเป็นเครื่องเต็ม</label>
+                    <label><input type="radio" name="apRound" ${autoPlanRounding === 'tenth' ? 'checked' : ''} onchange="autoPlanRounding='tenth'; renderAutoPlanModal();"> ปัดขึ้นทีละ 0.1 เครื่อง</label>
+                    <label><input type="checkbox" ${autoPlanClearOthers ? 'checked' : ''} onchange="autoPlanClearOthers=this.checked;"> ล้างค่าเดิมของ Model ที่ไม่มีความต้องการ</label>
+                </div>
+                ${warnHtml}
+                <div style="max-height:50vh; overflow:auto;">${sections}</div>
+                <div class="modal-actions" style="margin-top:16px;">
+                    <button class="modal-btn modal-btn-cancel" onclick="closeModal()">ปิด</button>
+                    <button class="modal-btn modal-btn-confirm" onclick="applyAutoPlan()"><i class="fas fa-check"></i> นำไปใส่ในแผน LC / BW</button>
+                </div>
+            </div>
+        </div>`;
+    document.getElementById('modalOverlay').onclick = (e) => { if (e.target.id === 'modalOverlay') closeModal(); };
+}
+
+// เขียนผลลงตาราง LC/BW ในหน้าจอ (ยังไม่บันทึกลง server จนกว่าจะกดปุ่ม "บันทึก" ตามปกติ)
+function applyAutoPlan() {
+    const dateKeys = getViewDateKeys();
+    const { plan } = computeCascadePlan(dateKeys, autoPlanRounding);
+    let changed = 0;
+    ['LC', 'BW'].forEach(proc => {
+        if (!canEditProcess(proc)) return;
+        processConfig[proc].groups.forEach(g => {
+            (modelState[g.id] || []).forEach(m => {
+                dateKeys.forEach(dk => {
+                    const key = `${proc}_${m}_${dk}`;
+                    const v = plan[proc][m] && plan[proc][m][dk];
+                    let newVal;
+                    if (v) newVal = String(v.mc);
+                    else if (autoPlanClearOthers && cellData[key]) newVal = '';
+                    else return;
+                    if ((cellData[key] || '') === newVal) return;
+                    if (newVal) cellData[key] = newVal; else delete cellData[key];
+                    markKeyDirty('cellData', key);
+                    changed++;
+                });
+            });
+        });
+    });
+    closeModal();
+    rerenderCurrentView();
+    showToast(changed > 0 ? `ใส่แผนอัตโนมัติแล้ว ${changed} ช่อง — ตรวจสอบแล้วกด "บันทึก"` : 'ไม่มีช่องไหนเปลี่ยน', changed > 0 ? 'success' : 'info');
+}
+
 // ตั้งชื่อโมเดลแบบแยก 2 ช่อง (ชื่อหลัก + ชนิด/ทูลลิ่ง เช่น DSS2, EK, DSTC, Auto) — คืนค่า {base, variant} หรือ null ถ้ายกเลิก
 // ส่วนแหล่งวัตถุดิบย้ายไปจัดการรวมที่เดียวที่เมนู "จัดการแหล่งวัตถุดิบ (BOM)" แทน (openManageBom)
 function showModelNameModal(title, defaultBase = '', defaultVariant = '') {
@@ -1067,6 +1221,8 @@ function updateAdminUI() {
     let saveBtn = document.getElementById('saveBtn');
     const manageUsersBtn = document.getElementById('manageUsersBtn');
     const manageBomBtn = document.getElementById('manageBomBtn');
+    const autoPlanBtn = document.getElementById('autoPlanBtn');
+    if (autoPlanBtn) autoPlanBtn.style.display = (canEditProcess('LC') || canEditProcess('BW')) ? 'flex' : 'none';
     if (isAdmin) {
         btn.innerHTML = '<i class="fas fa-unlock"></i> Admin Mode'; btn.classList.add('logged-in');
         revInput.removeAttribute('readonly'); revInput.style.background = '#fff';
