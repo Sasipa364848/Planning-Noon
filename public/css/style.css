@@ -90,8 +90,8 @@ body {
 .app-main { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 100vh; }
 .sidebar-brand { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 6px 12px; border-bottom: 1px solid var(--border-color); }
 .brand-logo-row { display: flex; align-items: center; gap: 9px; min-width: 0; }
-.brand-logo-img { height: 30px; width: auto; display: block; border-radius: 3px; flex-shrink: 0; }
-.brand-app-name { font-size: 14px; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.brand-logo-img { height: 26px; width: auto; display: block; border-radius: 3px; flex-shrink: 0; }
+.brand-app-name { font-size: 13.5px; font-weight: 600; color: var(--text-main); line-height: 1.2; }
 .sidebar-close, .sidebar-toggle { display: none; background: none; border: none; cursor: pointer; color: var(--text-secondary); font-size: 16px; }
 .sidebar-toggle { width: 34px; height: 34px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--card-bg); align-items: center; justify-content: center; flex-shrink: 0; }
 
@@ -1027,19 +1027,28 @@ body.kiosk-mode .topbar .more-menu-wrap, body.kiosk-mode .topbar .admin-mode-wra
 }
 
 /* แถบบนต้องอยู่บรรทัดเดียวบนจอคอม — ชื่อหน้ายอมตัดด้วย … ก่อนที่ปุ่มจะตกบรรทัด */
-@media (min-width: 901px) {
-    .topbar { flex-wrap: nowrap; }
-    .topbar-title { flex-shrink: 1; min-width: 0; }
-    #pageTitle { min-width: 0; overflow: hidden; text-overflow: ellipsis; display: block; }
-    #pageTitle .proc-dot, #pageTitle i { margin-right: 8px; vertical-align: 1px; }
-    .topbar > *:not(.topbar-title):not(.topbar-spacer) { flex-shrink: 0; }
+/* ชื่อหน้าห้ามโดนตัด — ถ้าที่ไม่พอ ให้ช่องค้นหาย่อเหลือไอคอน และปุ่มผู้ใช้เหลือแค่วงกลมอักษรย่อก่อน ถ้ายังไม่พออีกให้ตกบรรทัด */
+.topbar-title, #pageTitle { flex-shrink: 0; }
+@media (max-width: 1600px) {
+    .search-box { width: 34px; padding: 0; justify-content: center; cursor: pointer; }
+    .search-box .search-input { width: 0; }
+    .search-box:focus-within { width: 160px; padding: 0 10px; justify-content: flex-start; }
+    .search-box:focus-within .search-input { width: 100%; }
+    .topbar .btn-login { padding: 0 11px; }
+    .topbar .btn-login.logged-in { padding: 0 4px; }
+    .topbar .btn-login .login-label { display: none; }
+    .topbar-meta { gap: 8px; }
+    .topbar { gap: 8px; }
 }
-.search-box { width: 170px; }
 @media (max-width: 1700px) { .rev-updated { display: none; } }
-@media (max-width: 1450px) { .topbar-meta .sync-status { display: none; } .search-box { width: 140px; } }
+@media (max-width: 1450px) { .topbar-meta .sync-status { display: none; } }
 
 /* Shipment ของ BW ที่คำนวณจากแผน LC (ไม่ใช่ช่องกรอก) */
 .ship-auto { display: inline-flex; flex-direction: column; align-items: center; gap: 3px; }
 .ship-num { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text-main); }
-.ship-src { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 600; color: #0369a1; background: #e8f6fd; border-radius: 99px; padding: 1px 8px; white-space: nowrap; }
+.ship-src { display: inline-block; font-size: 10.5px; font-weight: 600; color: #0369a1; background: #e8f6fd; border-radius: 10px; padding: 1px 8px; max-width: 260px; text-align: center; line-height: 1.45; }
 body.dark-mode .ship-src { color: #7dd3fc; background: #0c2a3a; }
+
+.app-sidebar .btn-pill-group .btn-pill { gap: 6px; font-family: inherit; font-size: 12.5px; font-weight: 500; }
+
+.manual-btn { text-decoration: none; }

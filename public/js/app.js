@@ -86,7 +86,7 @@ const I18N = {
     count_sheet_print_title: { th: 'พิมพ์ใบนับสต็อกของแท็บนี้ ไว้เดินจดตัวเลข', en: 'Print a stock count sheet for this tab' },
     count_entry: { th: 'กรอกจากใบนับ', en: 'Enter from sheet' },
     lc_no_plan_today: { th: 'ไม่มีแผนวันนี้', en: 'no plan this day' },
-    ship_auto_title: { th: 'คำนวณจากแผนผลิต LC ของวันที่เลือก ตามความสัมพันธ์ใน BOM (เครื่อง × Hrs × 3600 ÷ MCT × OA% × อัตราส่วน)', en: 'Calculated from the LC plan on the selected day via the BOM (M/C × Hrs × 3600 ÷ MCT × OA% × ratio)' },
+    ship_auto_title: { th: 'คำนวณจากแผนผลิตของกระบวนการที่ใช้ (BW ← LC, LC ← CW) ในวันที่เลือก ตามความสัมพันธ์ใน BOM (เครื่อง × Hrs × 3600 ÷ MCT × OA% × อัตราส่วน)', en: 'Calculated from the consuming process plan (BW ← LC, LC ← CW) on the selected day via the BOM (M/C × Hrs × 3600 ÷ MCT × OA% × ratio)' },
     plan_title_short: { th: 'แผน M/C', en: 'M/C plan' },
     nav_plans_label: { th: 'แผนการผลิต', en: 'Production plans' },
     login_to_edit: { th: 'เข้าสู่ระบบเพื่อแก้ไข', en: 'Log in to edit' },
@@ -104,7 +104,10 @@ const I18N = {
     plan_7d_prefix: { th: 'แผน 7 วัน', en: '7-day plan' },
     stock_not_entered: { th: 'ยังไม่ได้กรอกสต็อก', en: 'No stock entered yet' },
     open_plan_hint: { th: 'คลิกเพื่อเปิดแผน', en: 'Click to open the plan' },
-    auto_plan: { th: 'Auto Plan (LC/BW จาก CW)', en: 'Auto Plan (LC/BW from CW)' },
+    auto_plan: { th: 'Auto Plan', en: 'Auto Plan' },
+    manual_title: { th: 'คู่มือการใช้งาน', en: 'User manual' },
+    undo_label: { th: 'เลิกทำ', en: 'Undo' },
+    redo_label: { th: 'ทำซ้ำ', en: 'Redo' },
     auto_plan_title: { th: 'กรอกเครื่อง CW แล้วให้ระบบคำนวณ LC / BW ตาม BOM', en: 'Enter CW machines and let the system calculate LC / BW from the BOM' },
     count_scan: { th: 'อ่านจากใบสแกน', en: 'Read scanned sheet' },
     count_scan_title: { th: 'เลือกไฟล์สแกนใบนับ (PDF/รูป) ระบบจะอ่านตัวเลขแล้วกรอกให้ ตรวจก่อนบันทึก', en: 'Pick a scanned count sheet (PDF/image); numbers are read and filled in for review' },
@@ -112,7 +115,7 @@ const I18N = {
     problems_suffix: { th: 'มีปัญหา', en: 'with problems' },
     th_current_stock_sub: { th: '(จำนวนชิ้น/Pcs)', en: '(Pcs)' },
     th_last_counted_sub: { th: '(เมื่อไหร่/ใคร)', en: '(when / by whom)' },
-    th_planned_used_sub: { th: '(ชิ้น/Pcs — BW ที่ผูก LC คิดจากแผน LC)', en: '(Pcs — BW linked to LC uses the LC plan)' },
+    th_planned_used_sub: { th: '(ชิ้น/Pcs — ที่ผูก BOM คิดจากแผนปลายทาง)', en: '(Pcs — BOM-linked models use the downstream plan)' },
     attention_list_title: { th: 'รายการที่ต้องดูก่อน', en: 'Items needing attention' },
     th_process: { th: 'กระบวนการ', en: 'Process' },
     th_current_stock: { th: 'สต็อกปัจจุบัน', en: 'Current stock' },
@@ -2021,32 +2024,36 @@ function renderHomePanels(procs, rows) {
             </div>`; }).join('')}</div>`}`;
 }
 
-// === Shipment ของ BW ดึงจากแผน LC ตาม BOM (sourceMap: LC_<model> -> { srcProc: 'BW', srcModel, ratio }) ===
-// ชิ้นที่ LC ใช้ = เครื่อง LC × Hrs × 3600 ÷ MCT × OA% × อัตราส่วน BOM — BW ที่ไม่มี LC ผูกไว้ยังกรอก Shipment เองเหมือนเดิม
-function lcModelsFeedingBw(bwModel) {
+// === Shipment ดึงจากแผนของกระบวนการที่ใช้ของตัวนี้ ตาม BOM (sourceMap: <ผู้ใช้>_<model> -> { srcProc, srcModel, ratio }) ===
+// BW ถูก LC ใช้, LC ถูก CW ใช้ — ชิ้นที่ใช้ = เครื่องของผู้ใช้ × Hrs × 3600 ÷ MCT × OA% × อัตราส่วน BOM
+// Model ที่ไม่มีใครผูก BOM มาใช้ ยังกรอก Shipment เองเหมือนเดิม
+const SHIPMENT_CONSUMER = { BW: 'LC', LC: 'CW' };
+function consumersFeeding(proc, model) {
+    const consumer = SHIPMENT_CONSUMER[proc];
+    if (!consumer) return [];
     return Object.keys(sourceMap)
-        .filter(k => k.startsWith('LC_') && sourceMap[k] && sourceMap[k].srcProc === 'BW' && sourceMap[k].srcModel === bwModel)
-        .map(k => ({ model: k.slice(3), ratio: sourceMap[k].ratio || 1 }))
-        .filter(l => findGroupOfModel('LC', l.model));
+        .filter(k => k.startsWith(consumer + '_') && sourceMap[k] && sourceMap[k].srcProc === proc && sourceMap[k].srcModel === model)
+        .map(k => ({ proc: consumer, model: k.slice(consumer.length + 1), ratio: sourceMap[k].ratio || 1 }))
+        .filter(l => findGroupOfModel(consumer, l.model));
 }
-function lcUsageOnDate(links, dateKey) {
+function consumerUsageOnDate(links, dateKey) {
     let pcs = 0;
     const sources = [];
     links.forEach(l => {
-        const mc = parseFloat(cellData[`LC_${l.model}_${dateKey}`]);
+        const mc = parseFloat(cellData[`${l.proc}_${l.model}_${dateKey}`]);
         if (isNaN(mc) || mc <= 0) return;
-        const p = getParams(findGroupOfModel('LC', l.model));
-        pcs += calcPcs(mc, p.oa, p.mct, procHrs('LC', dateKey)) * l.ratio;
-        sources.push({ model: l.model, mc });
+        const p = getParams(findGroupOfModel(l.proc, l.model));
+        pcs += calcPcs(mc, p.oa, p.mct, procHrs(l.proc, dateKey)) * l.ratio;
+        sources.push({ proc: l.proc, model: l.model, mc });
     });
     return { pcs: Math.round(pcs), sources };
 }
-// ใช้ได้อีกกี่วัน: ไล่หักตามแผน LC ทีละวันจากวันที่เลือก (วันที่ LC ไม่ใช้ก็นับเป็นวันเต็ม) — คืน null ถ้า 60 วันข้างหน้าไม่มีแผน LC เลย
+// ใช้ได้อีกกี่วัน: ไล่หักตามแผนของผู้ใช้ทีละวันจากวันที่เลือก (วันที่ไม่ได้ใช้ก็นับเป็นวันเต็ม) — คืน null ถ้า 60 วันข้างหน้าไม่มีแผนเลย
 function walkDaysOfSupply(stock, links, startDate) {
     let left = stock, days = 0, anyUsage = false;
     for (let i = 0; i < 60; i++) {
         const d = new Date(startDate); d.setDate(d.getDate() + i);
-        const use = lcUsageOnDate(links, formatDateHeader(d)).pcs;
+        const use = consumerUsageOnDate(links, formatDateHeader(d)).pcs;
         if (use > 0) anyUsage = true;
         if (use > left) return Math.round((days + left / use) * 10) / 10;
         left -= use; days++;
@@ -2071,13 +2078,14 @@ function buildStockRows() {
                 const stockRec = getStockRecord(stockKey);
                 const currentStock = parseFloat(stockRec.value) || 0;
                 const plannedUsedRec = getPlannedUsedRecord(stockKey);
-                // BW ที่มี LC ผูก BOM ไว้: Shipment = ชิ้นที่ LC ใช้ในวันที่เลือก (ไม่ใช้ค่าที่เคยกรอกเอง)
-                const links = proc === 'BW' ? lcModelsFeedingBw(m) : [];
+                // BW ที่มี LC ผูก BOM / LC ที่มี CW ผูก BOM: Shipment = ชิ้นที่ปลายทางใช้ในวันที่เลือก (ไม่ใช้ค่าที่เคยกรอกเอง)
+                const links = consumersFeeding(proc, m);
                 const autoShipment = links.length > 0;
-                const usage = autoShipment ? lcUsageOnDate(links, viewKey) : null;
+                const usage = autoShipment ? consumerUsageOnDate(links, viewKey) : null;
                 const plannedUsed = autoShipment ? usage.pcs : (parseFloat(plannedUsedRec.value) || 0);
                 const balance = currentStock - plannedUsed;
-                const daysLeft = autoShipment ? walkDaysOfSupply(currentStock, links, viewDate)
+                const stockEntered = stockRec.value !== '' && stockRec.value != null;
+                const daysLeft = autoShipment ? (stockEntered ? walkDaysOfSupply(currentStock, links, viewDate) : null)
                     : (plannedUsed > 0 ? Math.round(currentStock / plannedUsed * 10) / 10 : null);
                 rows.push({ proc, groupId: g.id, model: m, displayModel: aiDisplayName(proc, m), stockKey, stockRec, plannedUsedRec, currentStock, plannedUsed, balance, daysLeft, autoShipment, shipmentSources: usage ? usage.sources : [], links, status: computeStockStatus(currentStock, plannedUsed, balance) });
             });
@@ -2232,8 +2240,8 @@ function renderStockPage() {
                 if (r.autoShipment) {
                     // Shipment มาจากแผน LC ตาม BOM — แก้ที่แผน LC หรือ BOM ไม่ใช่ที่ช่องนี้
                     const srcText = r.shipmentSources.length
-                        ? r.shipmentSources.map(x => `LC ${escapeHtml(x.model)} · ${x.mc} M/C`).join(', ')
-                        : `LC ${r.links.map(l => escapeHtml(l.model)).join(', ')} · ${t('lc_no_plan_today')}`;
+                        ? r.shipmentSources.map(x => `${x.proc} ${escapeHtml(aiDisplayName(x.proc, x.model))} · ${x.mc} M/C`).join(', ')
+                        : `${r.links[0].proc} ${r.links.map(l => escapeHtml(aiDisplayName(l.proc, l.model))).join(', ')} · ${t('lc_no_plan_today')}`;
                     plannedTd.innerHTML = `<div class="ship-auto" title="${t('ship_auto_title')}"><span class="ship-num">${r.plannedUsed ? r.plannedUsed.toLocaleString() : '0'}</span><span class="ship-src"><i class="fas fa-link"></i> ${srcText}</span></div>`;
                     groupTbody.appendChild(tr);
                 } else {
@@ -2286,6 +2294,14 @@ function renderStockPage() {
     updateStockBulkBarUI();
 }
 
+// เปิดหน้าสต็อกที่แท็บของกระบวนการนั้นเลย (ไม่งั้นจะค้างแท็บที่เปิดไว้ล่าสุด เช่น BW)
+function openStockTab(filter) {
+    const btn = Array.from(document.querySelectorAll('#stockProcessFilterGroup .toggle-btn')).find(b => (b.getAttribute('onclick') || '').includes(`'${filter}'`));
+    stockProcessFilter = filter;
+    document.querySelectorAll('#stockProcessFilterGroup .toggle-btn').forEach(b => b.classList.toggle('active', b === btn));
+    switchProcess('Stock');
+}
+
 function toggleStockChainRow(btn) {
     const row = btn.closest('tr').nextElementSibling;
     if (row && row.classList.contains('stock-chain-row')) row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
@@ -2336,7 +2352,7 @@ function renderOverview() {
         const seg = (k) => counts[k] ? `<i style="width:${counts[k] / total * 100}%;background:${STOCK_DONUT_COLORS[k]}"></i>` : '';
         const daysLeft = plannedUsedSum > 0 ? stock / plannedUsedSum : null;
         return `
-        <div class="proc-card" onclick="switchProcess('Stock')" title="${t('view_all_stock')}">
+        <div class="proc-card" onclick="openStockTab('${proc}')" title="${t('view_all_stock')}">
             <div class="pc-head"><span class="pname">${name}</span><span class="status-pill ${pillCls}">${label}</span></div>
             <div class="pstock">${stock.toLocaleString()}<small>${t('stock_remaining_unit')}</small></div>
             <div class="pc-bar">${seg('normal')}${seg('low')}${seg('critical')}${seg('excess')}</div>
@@ -2454,7 +2470,7 @@ function updateAdminUI() {
 // ปุ่มผู้ใช้มุมขวาบน: วงกลมอักษรย่อ + ชื่อ + บทบาท/process ที่แก้ได้ (กดเพื่อออกจากระบบเหมือนเดิม)
 function userPillHtml(name, sub) {
     const initials = String(name).trim().slice(0, 2).toUpperCase();
-    return `<span class="user-avatar">${escapeHtml(initials)}</span><span class="login-label">${escapeHtml(name)}<small>${escapeHtml(sub)}</small></span>`;
+    return `<span class="user-avatar" title="${escapeHtml(name)} · ${escapeHtml(sub)}">${escapeHtml(initials)}</span><span class="login-label">${escapeHtml(name)}<small>${escapeHtml(sub)}</small></span>`;
 }
 
 // === จัดการผู้ใช้งาน (เฉพาะ Admin) ===

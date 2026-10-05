@@ -78,10 +78,11 @@
             </div>
         </span>
     </div>
-    <div class="search-box" id="searchBox">
+    <div class="search-box" id="searchBox" onclick="document.getElementById('searchInput').focus()">
         <i class="fas fa-magnifying-glass"></i>
         <input type="text" id="searchInput" class="search-input" data-i18n-placeholder="search_placeholder" placeholder="ค้นหา Model..." style="display:none;" oninput="filterModels(this.value)">
     </div>
+    <a class="btn-bell manual-btn" id="manualBtn" href="manual.html" target="_blank" rel="noopener" onclick="this.href = currentUser ? 'manual.html#admin' : 'manual.html#general'" data-i18n-title="manual_title" title="คู่มือการใช้งาน"><i class="fas fa-circle-question"></i></a>
     <div class="bell-wrap">
         <button class="btn-bell" id="bellBtn" onclick="toggleBellPanel()" data-i18n-title="notif_title" title="การอัปเดตล่าสุด">
             <i class="fas fa-bell"></i>
@@ -116,7 +117,7 @@
         </div>
     </div>
     <div class="admin-mode-wrap">
-        <button class="btn-login" id="adminBtn" onclick="toggleAdmin()"><i class="fas fa-lock"></i> <span class="login-label" data-i18n="login_btn">เข้าสู่ระบบ</span></button>
+        <button class="btn-login" id="adminBtn" onclick="toggleAdmin()" data-i18n-title="login_btn" title="เข้าสู่ระบบ"><i class="fas fa-lock"></i> <span class="login-label" data-i18n="login_btn">เข้าสู่ระบบ</span></button>
     </div>
 </header>
 
@@ -154,10 +155,10 @@
         </button>
         <button class="btn-save" id="saveBtn" onclick="saveToServer()" style="display:none;" disabled><i class="fas fa-floppy-disk"></i> <span data-i18n="save_btn">บันทึก</span></button>
         <div class="btn-pill-group" id="undoRedoGroup" style="display:none;">
-            <button class="btn-pill" id="undoBtn" onclick="undoEdit()" disabled data-i18n-title="undo_title" title="เลิกทำ (Undo)"><i class="fas fa-rotate-left"></i></button>
-            <button class="btn-pill" id="redoBtn" onclick="redoEdit()" disabled data-i18n-title="redo_title" title="ทำซ้ำ (Redo)"><i class="fas fa-rotate-right"></i></button>
+            <button class="btn-pill" id="undoBtn" onclick="undoEdit()" disabled data-i18n-title="undo_title" title="เลิกทำ (Undo)"><i class="fas fa-rotate-left"></i> <span data-i18n="undo_label">เลิกทำ</span></button>
+            <button class="btn-pill" id="redoBtn" onclick="redoEdit()" disabled data-i18n-title="redo_title" title="ทำซ้ำ (Redo)"><i class="fas fa-rotate-right"></i> <span data-i18n="redo_label">ทำซ้ำ</span></button>
         </div>
-        <button class="btn-toggle-visible" id="autoPlanBtn" onclick="openAutoPlan()" style="display:none;" data-i18n-title="auto_plan_title" title="กรอกเครื่อง CW แล้วให้ระบบคำนวณ LC / BW ตาม BOM"><i class="fas fa-wand-magic-sparkles"></i> <span data-i18n="auto_plan">Auto Plan (LC/BW จาก CW)</span></button>
+        <button class="btn-toggle-visible" id="autoPlanBtn" onclick="openAutoPlan()" style="display:none;" data-i18n-title="auto_plan_title" title="กรอกเครื่อง CW แล้วให้ระบบคำนวณ LC / BW ตาม BOM"><i class="fas fa-wand-magic-sparkles"></i> <span data-i18n="auto_plan">Auto Plan</span></button>
         <button class="btn-toggle-visible" id="copyPrevPeriodBtn" onclick="copyFromPreviousPeriod()" style="display:none;" data-i18n-title="copy_prev_period_title" title="คัดลอกจำนวนเครื่องจากช่วงก่อนหน้า (ยาวเท่าที่กำลังดูอยู่) มาเป็นจุดตั้งต้น"><i class="fas fa-clone"></i> <span data-i18n="copy_prev_period">คัดลอกจากช่วงก่อนหน้า</span></button>
         <button class="btn-send-plan" id="sendPlanBtn" onclick="sendPlanToTeam()" style="display:none;" data-i18n-title="send_plan_title" title="ส่งแผนที่แก้ไขใหม่ให้ทีมทาง Teams"><i class="fas fa-paper-plane"></i> <span data-i18n="send_plan">ส่งแผนให้ทีม</span></button>
     </div>

@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>คู่มือการใช้งาน — Production Plan</title>
+<link rel="stylesheet" href="vendor/fonts/prompt.css">
+<link rel="stylesheet" href="vendor/fontawesome/all.min.css">
+<style>
+:root { --bg:#f4f5f8; --card:#fff; --head:#f8f9fb; --border:#e6e8ee; --text:#111827; --sub:#5b6475; --muted:#9aa1ae;
+  --primary:#4f46e5; --primary-soft:#eef0ff; --ok:#16a34a; --ok-soft:#ecfdf3; --warn:#b45309; --warn-soft:#fff8eb; --bad:#dc2626; --bad-soft:#fef2f2; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: 'Prompt', sans-serif; font-size: 14px; line-height: 1.7; color: var(--text); background: var(--bg); }
+header { position: sticky; top: 0; z-index: 10; background: var(--card); border-bottom: 1px solid var(--border); }
+.head-in { max-width: 980px; margin: 0 auto; padding: 12px 20px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.head-in img { height: 28px; }
+.head-in h1 { font-size: 17px; margin: 0; }
+.tabs { display: flex; gap: 4px; margin-left: auto; background: var(--head); border: 1px solid var(--border); border-radius: 10px; padding: 3px; }
+.tabs a { text-decoration: none; color: var(--sub); padding: 6px 14px; border-radius: 8px; font-weight: 500; }
+.tabs a.on { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
+main { max-width: 980px; margin: 0 auto; padding: 20px; }
+.page { display: none; } .page.on { display: block; }
+.intro { background: var(--primary-soft); border: 1px solid #d9dcff; border-radius: 12px; padding: 14px 18px; margin-bottom: 18px; color: #312e81; }
+.toc { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+.toc a { text-decoration: none; font-size: 12.5px; color: var(--sub); background: var(--card); border: 1px solid var(--border); border-radius: 99px; padding: 4px 12px; }
+.toc a:hover { color: var(--primary); border-color: var(--primary); }
+section { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px 22px; margin-bottom: 16px; scroll-margin-top: 80px; }
+h2 { font-size: 16px; margin: 0 0 10px; display: flex; align-items: center; gap: 10px; }
+h2 .ic { width: 30px; height: 30px; border-radius: 8px; background: var(--primary-soft); color: var(--primary); display: inline-flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; }
+h3 { font-size: 14px; margin: 14px 0 4px; }
+ul, ol { margin: 4px 0 8px; padding-left: 22px; }
+li { margin: 2px 0; }
+.k { display: inline-block; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; padding: 0 6px; font-size: 12px; background: var(--head); font-family: inherit; }
+.btn { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--border); border-radius: 7px; padding: 0 8px; font-size: 12.5px; background: var(--card); white-space: nowrap; }
+.tip { background: var(--ok-soft); border-left: 3px solid var(--ok); border-radius: 6px; padding: 8px 12px; margin: 8px 0; font-size: 13px; }
+.warn { background: var(--warn-soft); border-left: 3px solid var(--warn); border-radius: 6px; padding: 8px 12px; margin: 8px 0; font-size: 13px; }
+.chip { display: inline-block; font-size: 11.5px; font-weight: 600; padding: 0 8px; border-radius: 99px; }
+.c-red { background: var(--bad-soft); color: var(--bad); } .c-yel { background: var(--warn-soft); color: var(--warn); } .c-grn { background: var(--ok-soft); color: var(--ok); }
+.c-l1 { background: #e7e9ff; color: #3730a3; } .c-l2 { background: #c9cdfd; color: #312e81; } .c-l3 { background: #6366f1; color: #fff; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; margin: 6px 0; }
+td, th { border: 1px solid var(--border); padding: 6px 10px; text-align: left; vertical-align: top; }
+th { background: var(--head); font-weight: 600; }
+.formula { font-family: Consolas, monospace; background: var(--head); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; display: inline-block; margin: 4px 0; font-size: 13px; }
+figure { margin: 6px 0 14px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--head); }
+figure img { display: block; width: 100%; height: auto; }
+figcaption { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 8px 12px; font-size: 12.5px; color: var(--sub); border-top: 1px solid var(--border); background: var(--card); }
+figcaption b { display: inline-flex; width: 18px; height: 18px; border-radius: 50%; background: #f97316; color: #fff; font-size: 11px; align-items: center; justify-content: center; margin-right: 3px; }
+footer { text-align: center; color: var(--muted); font-size: 12px; padding: 10px 0 30px; }
+</style>
+</head>
+<body>
+<header><div class="head-in">
+    <img src="img/dsst-logo.png" alt="DSST">
+    <h1>คู่มือการใช้งาน Production Plan</h1>
+    <nav class="tabs"><a href="#general" id="tab-general">ผู้ใช้ทั่วไป</a><a href="#admin" id="tab-admin">แอดมิน / ผู้แก้ไขแผน</a></nav>
+</div></header>
+<main>
+
+<!-- ===================== ผู้ใช้ทั่วไป ===================== -->
+<div class="page" id="page-general">
+<div class="intro"><b>สำหรับทุกคน — ไม่ต้องเข้าสู่ระบบ</b><br>เปิดดูแผนการผลิต สต็อก และประกาศได้ทันที ข้อมูลอัปเดตเองอัตโนมัติทุก ~15 วินาที ไม่ต้องกดรีเฟรช</div>
+<div class="toc"><a href="#g-layout">หน้าจอหลัก</a><a href="#g-home">หน้าแรก</a><a href="#g-plan">แผนการผลิต</a><a href="#g-stock">สต็อก</a><a href="#g-export">พิมพ์ / ส่งออก</a><a href="#g-other">อื่นๆ</a></div>
+
+<section id="g-layout">
+<h2><span class="ic"><i class="fas fa-table-columns"></i></span>ส่วนประกอบหน้าจอ</h2>
+<figure><img src="img/manual/main-layout.png" alt="" loading="lazy"><figcaption><span><b>1</b> เมนูซ้าย</span><span><b>2</b> เลื่อนช่วงวันที่ / เลือกจากปฏิทิน</span><span><b>3</b> ดูทีละ วัน / สัปดาห์ / เดือน</span><span><b>4</b> ค้นหา Model</span><span><b>5</b> การอัปเดตล่าสุด</span><span><b>6</b> การ์ดสรุป</span><span><b>7</b> ประกาศ</span><span><b>8</b> ซ่อน Model ว่าง / พับทุกกลุ่ม</span><span><b>9</b> แถบชื่อกลุ่ม (กดพับ/กาง)</span><span><b>10</b> จำนวนเครื่อง + ชิ้นที่ผลิตได้</span></figcaption></figure>
+<h3>เมนูซ้าย</h3>
+<ul>
+<li><b>หน้าแรก</b> — ภาพรวมการผลิตและสต็อกทุกกระบวนการ</li>
+<li><b>สต็อก</b> — ตัวเลขแดงข้างเมนู = จำนวน Model ที่สต็อกต่ำ/วิกฤตอยู่ตอนนี้</li>
+<li><b>แผนการผลิต</b> BW / LC / CW / AI — จุดสีหน้าชื่อใช้แยกกระบวนการ</li>
+<li>ล่างสุด: เปลี่ยนภาษา <span class="btn">TH / EN</span>, โหมดมืด <span class="btn"><i class="fas fa-moon"></i></span>, โหมดจอทีวี <span class="btn"><i class="fas fa-tv"></i></span></li>
+</ul>
+<h3>แถบด้านบน</h3>
+<ul>
+<li><span class="btn"><i class="fas fa-chevron-left"></i></span> <span class="btn"><i class="fas fa-calendar"></i> 5 – 11 ต.ค.</span> <span class="btn"><i class="fas fa-chevron-right"></i></span> — กดลูกศรเลื่อนทีละช่วง กดที่วันที่เพื่อเลือกจากปฏิทิน</li>
+<li><span class="btn">1 วัน · 1 สัปดาห์ · 1 เดือน</span> เปลี่ยนความยาวช่วงที่ดู · <span class="btn">วันนี้</span> กลับมาวันปัจจุบัน</li>
+<li><i class="fas fa-eye"></i> จำนวนคนที่เปิดหน้านี้อยู่ (กดดูรายชื่อ) · <span class="btn"><i class="fas fa-magnifying-glass"></i> ค้นหา Model</span></li>
+<li><span class="btn"><i class="fas fa-bell"></i></span> การอัปเดตล่าสุด — ใคร แก้ process ไหน Model อะไร เมื่อไหร่ · <span class="btn"><i class="fas fa-ellipsis-vertical"></i></span> ส่งออก CSV / PDF</li>
+</ul>
+</section>
+
+<section id="g-home">
+<h2><span class="ic"><i class="fas fa-house"></i></span>หน้าแรก</h2>
+<figure><img src="img/manual/home.png" alt="" loading="lazy"><figcaption><span><b>1</b> การ์ดที่มีข้อมูลสต็อก</span><span><b>2</b> การ์ดที่ยังไม่กรอกสต็อก (แสดงแผน 7 วันแทน)</span><span><b>3</b> รายการวิกฤตด่วน</span><span><b>4</b> สต็อกจะหมดในกี่วัน</span><span><b>5</b> แผน 7 วันข้างหน้า (กดเพื่อเปิดแผน)</span></figcaption></figure>
+<ul>
+<li><b>แถบประกาศ</b> — แสดงบรรทัดแรก กด <b>ดูทั้งหมด</b> เพื่ออ่านครบ</li>
+<li><b>การ์ด 5 กระบวนการ</b> (BW, LC, CW, CW (Export), AI) — สต็อกคงเหลือ, Shipment, ใช้ได้อีกกี่วัน; ถ้ายังไม่มีข้อมูลสต็อกจะแสดง "แผน 7 วัน" แทน · กดการ์ดเพื่อเปิดหน้านั้น</li>
+<li>สีป้ายสถานะ: <span class="chip c-grn">ไม่มีปัญหา</span> <span class="chip c-yel">ต่ำ</span> <span class="chip c-red">วิกฤต</span></li>
+<li><b>รายการวิกฤตด่วน</b> และ <b>สต็อกจะหมดในกี่วัน</b> — Model ที่ใช้ได้ไม่เกิน 14 วัน เรียงจากน้อยไปมาก</li>
+<li><b>แผนการผลิต 7 วันข้างหน้า</b> — จำนวนเครื่องรวมต่อวัน ยิ่งเข้มยิ่งใช้เครื่องมาก · กดแถวเพื่อเปิดแผนกระบวนการนั้น</li>
+<li><b>แผนผลิตรวมของวันนี้</b> (ชิ้น) และ <b>Top Model</b> ตามแผน 7 วันข้างหน้า</li>
+</ul>
+</section>
+
+<section id="g-plan">
+<h2><span class="ic"><i class="fas fa-industry"></i></span>หน้าแผนการผลิต (BW / LC / CW / AI)</h2>
+<h3>การ์ดสรุปด้านบน</h3>
+<ul><li>เครื่องรวมวันนี้ · ชิ้นตามแผนวันนี้ · จำนวน Model ที่มีแผนในช่วงนี้ · กราฟเครื่องรายวัน</li></ul>
+<h3>อ่านตาราง</h3>
+<ul>
+<li><b>แถบชื่อกลุ่ม</b> (เช่น DG1-Mini (ESD)) — กดเพื่อพับ/กาง กลุ่มที่ว่างทั้งช่วงจะพับไว้ให้อัตโนมัติ · ปุ่ม <span class="btn"><i class="fas fa-layer-group"></i> พับทุกกลุ่ม</span></li>
+<li><b>ตัวเลขในช่อง</b> = จำนวนเครื่อง (M/C) สีเข้มตามจำนวน: <span class="chip c-l1">1</span> <span class="chip c-l2">2–3</span> <span class="chip c-l3">4+</span> · ตัวเลขเล็กข้างใต้ = จำนวนชิ้นที่ผลิตได้</li>
+<li>คอลัมน์ <b>วันนี้</b> สีม่วงอ่อน · <b>วันหยุด</b> (ส.–อา.) สีส้มอ่อน</li>
+<li><b>แถวรวม</b> (รวม DG1 Normal, รวมทั้งหมด ฯลฯ) — เครื่องและชิ้นรวม พร้อมลูกศรเทียบสัปดาห์ก่อน</li>
+<li><span class="chip c-red"><i class="fas fa-flag"></i> ด่วน</span> = Model ที่ต้องเร่ง · <span style="color:#f59e0b">●</span> มุมช่อง = มีคอมเมนต์ (ข้อความสีส้มใต้ตัวเลข)</li>
+<li><span class="btn"><i class="fas fa-eye-slash"></i> ซ่อน Model ว่าง</span> — ซ่อน Model ที่ไม่มีแผนในช่วงที่ดู</li>
+</ul>
+<h3>สูตรคำนวณชิ้น</h3>
+<div class="formula">ชิ้น = เครื่อง × Hrs/Day × 3600 ÷ MCT × OA%</div>
+</section>
+
+<section id="g-stock">
+<h2><span class="ic"><i class="fas fa-boxes-stacked"></i></span>หน้าสต็อก</h2>
+<figure><img src="img/manual/stock-table.png" alt="" loading="lazy"><figcaption><span><b>1</b> สต็อกปัจจุบัน</span><span><b>2</b> นับล่าสุด (เมื่อไหร่/ใคร)</span><span><b>3</b> Shipment</span><span><b>4</b> คงเหลือ</span><span><b>5</b> ใช้ได้อีกกี่วัน</span><span><b>6</b> ที่มาของ Shipment จากแผนปลายทาง</span><span><b>7</b> เลือกกระบวนการ</span></figcaption></figure>
+<ul>
+<li>เลือกแท็บ <span class="btn">BW · LC · CW · CW (Export) · AI</span> · ปุ่ม <span class="btn" style="color:#dc2626"><i class="fas fa-triangle-exclamation"></i> เฉพาะที่มีปัญหา</span> แสดงเฉพาะสต็อกต่ำ/วิกฤต</li>
+<li>กดแถบชื่อกลุ่มเพื่อกาง/พับ (กลุ่มที่มีปัญหากางไว้ให้ก่อน)</li>
+</ul>
+<table>
+<tr><th>คอลัมน์</th><th>ความหมาย</th></tr>
+<tr><td>สต็อกปัจจุบัน</td><td>จำนวนชิ้นที่นับได้ล่าสุด</td></tr>
+<tr><td>นับล่าสุด</td><td>เมื่อไหร่ / ใครกรอก (ตัวแดง = เกิน 7 วันแล้ว ควรนับใหม่)</td></tr>
+<tr><td>Shipment</td><td>จำนวนชิ้นที่จะใช้ต่อวัน · Model ที่ผูก BOM ไว้คิดจากแผนของกระบวนการที่ใช้มันในวันที่เลือกอัตโนมัติ: <b>BW ← แผน LC</b>, <b>LC ← แผน CW</b> (มีป้าย <span class="chip" style="background:#e8f6fd;color:#0369a1"><i class="fas fa-link"></i> LC X2 · 5 M/C</span>)</td></tr>
+<tr><td>คงเหลือ</td><td>สต็อก − Shipment (ติดลบ = ไม่พอใช้วันนี้)</td></tr>
+<tr><td>ใช้ได้อีก</td><td>จำนวนวันที่สต็อกพอใช้ <span class="chip c-red">≤ 5 วัน</span> <span class="chip c-yel">≤ 14 วัน</span> <span class="chip c-grn">&gt; 14 วัน</span> · Model ที่ผูก BOM คิดไล่ตามแผนปลายทางทีละวัน</td></tr>
+</table>
+<ul><li>ไอคอน <i class="fas fa-diagram-project"></i> ข้างชื่อ Model = ดูสายวัตถุดิบต้นทาง (เช่น CW ← LC ← BW) พร้อมสต็อกแต่ละชั้น</li></ul>
+</section>
+
+<section id="g-export">
+<h2><span class="ic"><i class="fas fa-print"></i></span>พิมพ์ / ส่งออก</h2>
+<ul>
+<li><span class="btn"><i class="fas fa-ellipsis-vertical"></i></span> → <b>ส่งออก PDF</b> — ดูตัวอย่างก่อนพิมพ์ เลือกแนวตั้ง/แนวนอนได้ ระบบซ่อน Model ว่างและย่อให้พอดี 1 หน้า A4 ให้เอง</li>
+<li><span class="btn"><i class="fas fa-ellipsis-vertical"></i></span> → <b>ส่งออก CSV</b> — เปิดต่อใน Excel ได้</li>
+<li>หน้าสต็อก → <span class="btn"><i class="fas fa-print"></i> พิมพ์ใบนับ</span> — ใบนับสต็อกของแท็บที่เลือก ไว้เดินจดตัวเลข</li>
+</ul>
+</section>
+
+<section id="g-other">
+<h2><span class="ic"><i class="fas fa-tv"></i></span>อื่นๆ</h2>
+<ul>
+<li><b>โหมดจอทีวี</b> <span class="btn"><i class="fas fa-tv"></i></span> — ตัวหนังสือใหญ่ เต็มจอ สลับหน้าอัตโนมัติ เหมาะเปิดค้างบนจอรวม · กด <span class="k">Esc</span> เพื่อออก</li>
+<li><b>โหมดมืด</b> — ถนอมสายตาเวลาเปิดนานๆ</li>
+<li>ต้องการแก้ไขข้อมูล → กด <span class="btn"><i class="fas fa-lock"></i> เข้าสู่ระบบ</span> มุมขวาบน (ขอบัญชีจากแอดมิน)</li>
+</ul>
+</section>
+</div>
+
+<!-- ===================== แอดมิน ===================== -->
+<div class="page" id="page-admin">
+<div class="intro"><b>สำหรับผู้ที่เข้าสู่ระบบ</b><br><b>แอดมิน</b> แก้ได้ทุกอย่าง · <b>ผู้แก้ไขแผน</b> (บัญชีที่ได้สิทธิ์บาง process) แก้ได้เฉพาะจำนวนเครื่อง/สต็อกของ process ที่ได้รับ — หัวข้อที่มี <span class="chip c-yel">แอดมิน</span> ทำได้เฉพาะแอดมิน</div>
+<div class="toc"><a href="#a-login">เข้าสู่ระบบ</a><a href="#a-edit">กรอกแผน</a><a href="#a-save">บันทึก</a><a href="#a-tools">เครื่องมือช่วยวางแผน</a><a href="#a-autoplan">Auto Plan</a><a href="#a-struct">Model / กลุ่ม</a><a href="#a-stock">สต็อก</a><a href="#a-count">ใบนับสต็อก</a><a href="#a-announce">ประกาศ</a><a href="#a-settings">ตั้งค่าระบบ</a><a href="#a-care">ข้อควรระวัง</a></div>
+
+<section id="a-login">
+<h2><span class="ic"><i class="fas fa-right-to-bracket"></i></span>เข้า / ออกจากระบบ</h2>
+<ul>
+<li>กด <span class="btn"><i class="fas fa-lock"></i> เข้าสู่ระบบ</span> มุมขวาบน (หรือปุ่มล่าง sidebar) ใส่ชื่อผู้ใช้ + รหัสผ่าน</li>
+<li>เข้าแล้วมุมขวาบนจะเป็นชื่อของคุณ และเครื่องมือแก้ไขจะโผล่ที่ <b>ล่าง sidebar</b></li>
+<li>ออกจากระบบ: กดที่ชื่อมุมขวาบน — ถ้ายังมีงานไม่บันทึก ระบบจะถามว่าจะบันทึกก่อนออกไหม</li>
+</ul>
+</section>
+
+<section id="a-edit">
+<h2><span class="ic"><i class="fas fa-keyboard"></i></span>กรอกแผน (จำนวนเครื่อง)</h2>
+<ul>
+<li>คลิกช่องแล้วพิมพ์จำนวนเครื่อง (ทศนิยมได้ เช่น 0.5, 1.5) · <span class="k">Enter</span> ลงแถวถัดไป · <span class="k">←</span><span class="k">↑</span><span class="k">→</span><span class="k">↓</span> เลื่อนช่อง</li>
+<li><b>วางจาก Excel</b>: copy หลายช่องใน Excel แล้ววาง (<span class="k">Ctrl</span>+<span class="k">V</span>) ที่ช่องเริ่มต้น</li>
+<li><b>ย้ายหลายช่อง</b>: ลากเมาส์คลุมหลายช่อง → <span class="k">Ctrl</span>+<span class="k">C</span> → คลิกช่องปลายทาง → <span class="k">Ctrl</span>+<span class="k">V</span></li>
+<li><b>Hrs/Day</b> แถวบนสุดของตาราง <span class="chip c-yel">แอดมิน</span> — ชั่วโมงทำงานของทั้งกระบวนการแต่ละวัน (ใส่ 0 = วันหยุด)</li>
+<li><b>OA% / MCT</b> ในแถบชื่อกลุ่ม <span class="chip c-yel">แอดมิน</span> — ใช้คำนวณจำนวนชิ้น</li>
+<li><b>เลิกทำ / ทำซ้ำ</b> <span class="chip c-yel">แอดมิน</span> — ปุ่มใน sidebar หรือ <span class="k">Ctrl</span>+<span class="k">Z</span> / <span class="k">Ctrl</span>+<span class="k">Y</span></li>
+</ul>
+</section>
+
+<section id="a-save">
+<h2><span class="ic"><i class="fas fa-floppy-disk"></i></span>บันทึก และ ส่งแผน</h2>
+<ul>
+<li>ทุกการแก้ไข <b>ยังไม่ถึงคนอื่น</b> จนกว่าจะกด <span class="btn" style="background:#6366f1;color:#fff;border-color:#6366f1"><i class="fas fa-floppy-disk"></i> บันทึก</span> (มีจุดส้มที่ปุ่ม = ยังมีงานไม่บันทึก)</li>
+<li>ระบบส่งเฉพาะช่องที่แก้ไป จึงไม่ทับงานที่คนอื่นเพิ่งบันทึก · ระหว่างกำลังพิมพ์ ระบบจะไม่ดึงข้อมูลใหม่มาทับ</li>
+<li><b>Rev.</b> ข้างชื่อหน้า <span class="chip c-yel">แอดมิน</span> — เลขรุ่นของแผน แก้ได้โดยคลิกที่ตัวเลข</li>
+<li><span class="btn"><i class="fas fa-paper-plane"></i> ส่งแผนให้ทีม</span> <span class="chip c-yel">แอดมิน</span> — แจ้งเตือนทาง Microsoft Teams ว่าแผนกระบวนการไหนเปลี่ยน</li>
+</ul>
+</section>
+
+<section id="a-tools">
+<h2><span class="ic"><i class="fas fa-screwdriver-wrench"></i></span>เครื่องมือช่วยวางแผน</h2>
+<ul>
+<li><span class="btn"><i class="fas fa-clone"></i> คัดลอกจากช่วงก่อนหน้า</span> — ดึงจำนวนเครื่องของช่วงก่อนหน้า (ยาวเท่าที่ดูอยู่) มาเป็นจุดตั้งต้น มีหน้าต่างให้ยืนยันก่อน</li>
+<li><span class="btn"><i class="fas fa-ellipsis-vertical"></i></span> → <b>ลบข้อมูลช่วงวันที่</b> <span class="chip c-yel">แอดมิน</span> — ล้างแผนของช่วงที่เลือก</li>
+<li><span class="btn"><i class="fas fa-ellipsis-vertical"></i></span> → <b>นำเข้า CSV</b> <span class="chip c-yel">แอดมิน</span> — นำเข้าแผนจากไฟล์ที่ส่งออกไป (แก้ใน Excel แล้วนำกลับมา)</li>
+<li><b>คอมเมนต์ประจำช่อง</b> <span class="chip c-yel">แอดมิน</span> — กดจุดเล็กมุมขวาบนของช่อง พิมพ์ข้อความ (ติดไปตอนพิมพ์ด้วย)</li>
+<li><b>ธงด่วน</b> <span class="chip c-yel">แอดมิน</span> — กดไอคอนธงจางๆ หน้าชื่อ Model เพื่อติด/ยกเลิก "ด่วน"</li>
+</ul>
+</section>
+
+<section id="a-autoplan">
+<h2><span class="ic"><i class="fas fa-wand-magic-sparkles"></i></span>Auto Plan (คำนวณ LC / BW จาก CW)</h2>
+<ol>
+<li>กรอกจำนวนเครื่อง <b>CW</b> ให้ครบในช่วงที่ต้องการ แล้วตั้ง <b>BOM</b> (CW → LC → BW) ให้ครบก่อน</li>
+<li>กด <span class="btn"><i class="fas fa-wand-magic-sparkles"></i> Auto Plan</span> ใน sidebar — ระบบแสดงผลลัพธ์ของ LC และ BW ให้ดูก่อน (จำนวนเครื่อง / ชิ้น / ค่าเดิม)</li>
+<li>เลือกปัดขึ้นทีละ 0.5 เครื่อง หรือเป็นเครื่องเต็ม และตั้ง "ผลิต LC ก่อน CW ใช้ … วัน"</li>
+<li>กด <b>นำไปใส่ในแผน LC / BW</b> → ตรวจในตาราง → กด <b>บันทึก</b></li>
+</ol>
+<div class="formula">ชิ้น LC ที่ต้องผลิต = ชิ้น CW × อัตราส่วน BOM → เครื่อง LC = ชิ้น ÷ ชิ้นต่อเครื่องของ LC</div>
+<div class="tip">งาน LC มีอายุ 14 วัน: ถ้าวันที่ต้องผลิต LC เป็นวันหยุด (Hrs/Day = 0) ระบบเลื่อนไปผลิตวันทำงานก่อนหน้าให้เอง ไม่เกิน 14 วัน · BW ผลิตวันเดียวกับ LC</div>
+<div class="warn">Model ที่ยังไม่ได้ตั้ง BOM จะขึ้นเตือนสีเหลืองและไม่ถูกนำไปคำนวณ</div>
+</section>
+
+<section id="a-struct">
+<h2><span class="ic"><i class="fas fa-list"></i></span>จัดการ Model และกลุ่ม <span class="chip c-yel">แอดมิน</span></h2>
+<ul>
+<li><b>เพิ่ม Model</b> — ปุ่ม <span style="color:#16a34a"><i class="fas fa-plus"></i> เพิ่ม Model</span> ท้ายแต่ละกลุ่ม</li>
+<li><b>แก้ชื่อ / ลบ</b> — ชี้เมาส์ที่แถว Model จะมีปุ่ม <i class="fas fa-pencil-alt" style="color:#6366f1"></i> <i class="fas fa-trash" style="color:#dc2626"></i> ทางขวา</li>
+<li><b>จัดลำดับ</b> — ลากที่จุดจับ <i class="fas fa-grip-vertical"></i> หน้าชื่อ Model</li>
+<li><b>แก้ไขประเภท</b> (ชื่อกลุ่ม) — ปุ่มในแถบชื่อกลุ่ม</li>
+<li><b>Cover</b> (CW / AI) — พิมพ์รหัส Cover และเลือกสีได้ Model ที่ใช้รหัสเดียวกันได้สีเดียวกันอัตโนมัติ</li>
+</ul>
+</section>
+
+<section id="a-stock">
+<h2><span class="ic"><i class="fas fa-boxes-stacked"></i></span>สต็อก</h2>
+<ul>
+<li>กรอก <b>สต็อกปัจจุบัน</b> และ <b>Shipment</b> ในตาราง (ผู้ที่ได้สิทธิ์ "Stock")</li>
+<li><b>Model ที่ผูก BOM</b>: Shipment คิดให้เอง (กรอกเองไม่ได้) — <b>BW</b> จากแผน LC, <b>LC</b> จากแผน CW ของวันที่เลือก · ต้องการเปลี่ยนให้แก้ที่แผนปลายทางหรือ BOM</li>
+<li>เลือกหลาย Model: ติ๊กช่องหน้าชื่อ หรือ <span class="btn"><i class="fas fa-check-double"></i> เลือกทั้งหมด</span> แล้วใช้ <b>เคลียร์ข้อมูลสต็อก</b> / <b>ลบ Model</b> ใน sidebar <span class="chip c-yel">แอดมิน</span></li>
+<li><span class="btn"><i class="fas fa-eraser"></i> ล้างสต็อกทุกกระบวนการ</span> <span class="chip c-yel">แอดมิน</span> — ใช้ตอนเริ่มรอบนับใหม่ทั้งโรงงาน (Model ยังอยู่ ยอดว่างลง)</li>
+</ul>
+</section>
+
+<section id="a-count">
+<h2><span class="ic"><i class="fas fa-clipboard-list"></i></span>ใบนับสต็อก (นับด้วยกระดาษ)</h2>
+<ol>
+<li>หน้าสต็อก เลือกแท็บ → <span class="btn"><i class="fas fa-print"></i> พิมพ์ใบนับ</span> · ตั้งการพิมพ์ <b>ขนาดจริง 100%</b> (ห้าม "ย่อให้พอดีหน้า")</li>
+<li>เดินนับ เขียนตัวเลข <b>1 หลักต่อ 1 ช่อง</b> ชิดซ้าย ด้วยปากกา · ตัวที่ไม่ได้นับให้เว้นว่าง</li>
+<li>กลับมากรอกได้ 2 วิธี:
+  <ul>
+  <li><span class="btn"><i class="fas fa-keyboard"></i> กรอกจากใบนับ</span> — พิมพ์ตามลำดับรหัสในใบ กด <span class="k">Enter</span> ไล่ลงไป (วางคอลัมน์จาก Excel ได้)</li>
+  <li><span class="btn"><i class="fas fa-file-import"></i> อ่านจากใบสแกน</span> — สแกนใบนับเป็น PDF/รูป แล้วเลือกไฟล์ ระบบอ่านลายมือให้ (อ่านในเครื่อง ไม่ส่งข้อมูลออกนอกบริษัท)</li>
+  </ul></li>
+<li>ตรวจช่อง <span class="chip c-yel">สีเหลือง</span> (อ่านไม่ชัด / ต่างจากครั้งก่อนมาก) เทียบกับรูปลายมือในแต่ละแถว → กด <b>บันทึก</b></li>
+</ol>
+<div class="tip">สแกนให้เห็นสี่เหลี่ยมดำครบ 4 มุม · สแกนกลับหัว/เอียงเล็กน้อยได้ · ถ้ารายชื่อ Model เปลี่ยนหลังพิมพ์ ระบบจะเตือน — ควรพิมพ์ใบใหม่ทุกรอบนับ</div>
+</section>
+
+<section id="a-announce">
+<h2><span class="ic"><i class="fas fa-bullhorn"></i></span>ประกาศ <span class="chip c-yel">แอดมิน</span></h2>
+<ul>
+<li>ที่หน้าแรก กด <span style="color:#16a34a"><i class="fas fa-plus"></i> เพิ่มประกาศ</span> ในแถบประกาศ</li>
+<li>เลือกได้ว่าให้แสดง <b>ทุกหน้า</b> หรือ <b>เฉพาะกระบวนการ</b> (BW/LC/CW/AI) — ประกาศของกระบวนการจะติดไปกับตอนพิมพ์แผนด้วย</li>
+<li>แก้/ลบ: กด "ดูทั้งหมด" แล้วใช้ปุ่ม <i class="fas fa-pencil-alt" style="color:#6366f1"></i> <i class="fas fa-trash" style="color:#dc2626"></i> · อย่าลืมกด <b>บันทึก</b></li>
+</ul>
+</section>
+
+<section id="a-settings">
+<h2><span class="ic"><i class="fas fa-gear"></i></span>ตั้งค่าระบบ <span class="chip c-yel">แอดมิน</span></h2>
+<p>อยู่ที่ <span class="btn"><i class="fas fa-ellipsis-vertical"></i></span> มุมขวาบน → ตั้งค่าระบบ</p>
+<ul>
+<li><b>จัดการผู้ใช้งาน</b> — เพิ่ม/ลบบัญชี, รีเซ็ตรหัสผ่าน, กำหนดว่าแก้ได้เฉพาะ process ไหน (BW/LC/CW/AI/Stock) หรือเป็นแอดมิน</li>
+<li><b>จัดการแหล่งวัตถุดิบ (BOM)</b> — ผูกว่า Model ไหนใช้วัตถุดิบจาก Model ไหน (CW ← LC ← BW) และ <b>อัตราส่วน</b> · ใช้ทั้ง Auto Plan, Shipment ของ BW/LC และสายวัตถุดิบในหน้าสต็อก</li>
+<li><b>ทดสอบแจ้งเตือน Teams</b> — ลองส่งข้อความเพื่อเช็คว่าเชื่อมต่อ Teams ได้</li>
+<li><span class="btn"><i class="fas fa-ellipsis-vertical"></i></span> → <b>เคล็ดลับการใช้งาน</b> — สรุปปุ่มลัดคีย์บอร์ด</li>
+</ul>
+</section>
+
+<section id="a-care">
+<h2><span class="ic" style="background:var(--warn-soft);color:var(--warn)"><i class="fas fa-triangle-exclamation"></i></span>ข้อควรระวัง</h2>
+<ul>
+<li><b>กดบันทึกก่อนปิดหน้า</b> — ถ้าปิดทั้งที่ยังมีงานไม่บันทึก เบราว์เซอร์จะเตือน</li>
+<li>หลายคนแก้ <b>ช่องเดียวกัน</b> พร้อมกัน คนที่บันทึกทีหลังจะทับ — แก้คนละช่องได้ปกติ</li>
+<li>การลบ Model / ล้างสต็อก / ลบข้อมูลช่วงวันที่ <b>ย้อนกลับไม่ได้</b> — ระบบจะให้ยืนยันก่อนทุกครั้ง</li>
+<li>ช่องที่มีคนอื่นเพิ่งแก้เข้ามาจะกะพริบสีม่วงสั้นๆ ให้เห็น</li>
+</ul>
+</section>
+</div>
+
+<footer>Daicel Safety Systems (Thailand) · Production Plan Dashboard</footer>
+</main>
+<script>
+function show() {
+    const admin = location.hash.startsWith('#a') ;
+    document.getElementById('page-general').classList.toggle('on', !admin);
+    document.getElementById('page-admin').classList.toggle('on', admin);
+    document.getElementById('tab-general').classList.toggle('on', !admin);
+    document.getElementById('tab-admin').classList.toggle('on', admin);
+    const target = location.hash.length > 1 && document.querySelector(location.hash);
+    if (target && target.tagName === 'SECTION') target.scrollIntoView();
+    else window.scrollTo(0, 0);
+}
+window.addEventListener('hashchange', show);
+show();
+</script>
+</body>
+</html>
