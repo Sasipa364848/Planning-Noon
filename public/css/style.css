@@ -78,139 +78,142 @@ body {
     -webkit-font-smoothing: antialiased;
 }
 
-/* --- โครงหน้าแนวนอน: เมนู/เครื่องมืออยู่ sidebar ซ้าย เนื้อหาอยู่ขวา --- */
+/* --- โครงหน้า: sidebar ซ้าย (เมนู + เครื่องมือแก้ไข) / ขวา = แถบบนสุด (ชื่อหน้า วันที่ ค้นหา ผู้ใช้) + เนื้อหา --- */
 .app-shell { display: flex; min-height: 100vh; align-items: flex-start; }
-/* overflow-y:auto เดิมเคยอยู่ตรงนี้ (ที่ .app-sidebar เอง) แต่ตาม spec ถ้าตั้ง overflow-y เป็นค่าอื่นที่ไม่ใช่ visible โดยไม่ตั้ง overflow-x กำกับไว้ browser จะบังคับ overflow-x เป็น auto ไปด้วยเงียบๆ
-   กลายเป็นว่า sidebar ทั้งกล่องเป็นกรอบตัดขอบแนวนอนไปด้วย ทำให้ dropdown ของ Login/เพิ่มเติม/แจ้งเตือน (ที่ตั้งใจให้ล้นขวาออกไปในเนื้อหาได้) โดนตัดตรงขอบขวาของ sidebar (240px) พอดี
-   ย้าย overflow-y:auto ไปไว้ที่ .sidebar-scroll (ครอบแค่เมนู/แถบเครื่องมือ) แทน ให้แถบแบรนด์ (ที่ dropdown พวกนี้อยู่) ไม่ถูกครอบด้วย overflow container อีก ดรอปดาวน์เลยล้นขวาออกไปได้ตามที่ตั้งใจจริงๆ */
+/* overflow-y:auto อยู่ที่ .sidebar-scroll ไม่ใช่ที่ .app-sidebar — ถ้าตั้งที่ตัว sidebar เอง browser จะบังคับ overflow-x ตามไปด้วย ทำให้ dropdown ที่ล้นออกไปโดนตัด */
 .app-sidebar {
-    width: 240px; flex-shrink: 0; background: var(--card-bg); border-right: 1px solid var(--border-color);
-    position: sticky; top: 0; height: 100vh; padding: 14px 12px;
-    display: flex; flex-direction: column; gap: 10px; z-index: 300;
+    width: 220px; flex-shrink: 0; background: var(--card-bg); border-right: 1px solid var(--border-color);
+    position: sticky; top: 0; height: 100vh; padding: 14px 12px 10px;
+    display: flex; flex-direction: column; gap: 8px; z-index: 300;
 }
-.sidebar-scroll { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-.app-main { flex: 1; min-width: 0; padding: 20px 24px; }
-.sidebar-brand {
-    font-weight: 600; font-size: 14px; color: var(--text-main); padding: 2px 8px 12px;
-    border-bottom: 1px solid var(--border-color);
-}
-.sidebar-brand i { color: var(--btn-primary); margin-right: 4px; }
-/* แถบแบรนด์แยกเป็น 2 แถว: บน = โลโก้+ชื่อแอป (มีพื้นที่พอให้โลโก้ใหญ่ขึ้นโดยไม่เบียดจนชื่อแอปโดนตัด), ล่าง = ปุ่มสลับภาษา/กระดิ่ง */
-.sidebar-brand-stack { display: flex; flex-direction: column; gap: 10px; }
-.brand-row-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sidebar-scroll { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+.app-main { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 100vh; }
+.sidebar-brand { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 6px 12px; border-bottom: 1px solid var(--border-color); }
 .brand-logo-row { display: flex; align-items: center; gap: 9px; min-width: 0; }
-.brand-logo-img { height: 34px; width: auto; display: block; border-radius: 3px; flex-shrink: 0; }
+.brand-logo-img { height: 30px; width: auto; display: block; border-radius: 3px; flex-shrink: 0; }
 .brand-app-name { font-size: 14px; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sidebar-close, .sidebar-toggle { display: none; background: none; border: none; cursor: pointer; color: var(--text-secondary); font-size: 16px; }
-.sidebar-toggle {
-    display: none; width: 38px; height: 38px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
-    background: var(--card-bg); margin-bottom: 12px; align-items: center; justify-content: center;
-}
+.sidebar-toggle { width: 34px; height: 34px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--card-bg); align-items: center; justify-content: center; flex-shrink: 0; }
 
-/* Tab Styles — ในโหมด sidebar เรียงเป็นรายการแนวตั้งแทนแถบขีดเส้นใต้ */
-.tabs-container {
-    display: flex; flex-direction: column; gap: 2px; background: transparent;
-}
+.tabs-container { display: flex; flex-direction: column; gap: 2px; }
 .tab-btn {
-    display: flex; align-items: center; gap: 9px; padding: 9px 10px; background: transparent; border: none;
+    display: flex; align-items: center; gap: 9px; padding: 8px 10px; background: transparent; border: none;
     border-radius: var(--radius-sm); font-family: inherit; font-weight: 500; font-size: 13px;
     color: var(--text-secondary); cursor: pointer; transition: background 0.15s ease, color 0.15s ease;
     white-space: nowrap; text-align: left; width: 100%;
 }
 .tab-btn i { width: 15px; text-align: center; font-size: 13px; }
+.tab-btn .proc-dot { margin: 0 3px; }
 .tab-btn.active { color: var(--btn-primary); background: var(--btn-primary-soft); font-weight: 600; }
 .tab-btn:hover:not(.active) { color: var(--text-main); background: var(--header-bg); }
+.nav-sec-label { font-size: 10.5px; font-weight: 700; color: var(--text-muted); letter-spacing: 0.04em; padding: 12px 10px 4px; }
+.nav-badge { margin-left: auto; font-size: 10.5px; font-weight: 700; padding: 1px 7px; border-radius: 99px; background: var(--danger-soft); color: var(--danger); }
+.proc-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.proc-dot-BW { background: #6366f1; }
+.proc-dot-LC { background: #0ea5e9; }
+.proc-dot-CW { background: #14b8a6; }
+.proc-dot-AI { background: #f59e0b; }
 
-/* เครื่องมือทั้งหมดใน sidebar เรียงลงมาเป็นแนวตั้ง (ย้ายมาจาก .controls-area ด้วย JS ตอนเปิดหน้า) */
-.sidebar-tools { border-top: 1px solid var(--border-color); padding-top: 10px; }
-.app-sidebar .controls-area { flex-direction: column; align-items: stretch; gap: 6px; }
-.app-sidebar .controls-area > *,
-.app-sidebar .bell-wrap, .app-sidebar .more-menu-wrap, .app-sidebar .admin-mode-wrap { width: 100%; }
-.app-sidebar .btn-toggle-visible, .app-sidebar .search-input, .app-sidebar .date-picker,
-.app-sidebar .btn-save, .app-sidebar .btn-send-plan, .app-sidebar .btn-bell,
-.app-sidebar .btn-login, .app-sidebar .toggle-btn-group { width: 100%; }
-.app-sidebar .controls-divider { display: none !important; }
-
-/* หัวข้อกลุ่มในแถบเครื่องมือ — แบ่งเป็น มุมมอง / แก้ไขแผน / เครื่องมืออื่น ให้กวาดตาหาของเจอเร็วขึ้น */
+/* เครื่องมือแก้ไขชิดล่างของ sidebar (ย้ายมาจาก .controls-area ด้วย JS ตอนเปิดหน้า) */
+.sidebar-tools { margin-top: auto; }
+.app-sidebar .controls-area { display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
+.app-sidebar .controls-area > * { width: 100%; }
+.app-sidebar .controls-area button { justify-content: flex-start; }
 .sb-group-label {
-    font-size: 10px; font-weight: 700; color: var(--text-muted); letter-spacing: 0.04em;
+    font-size: 10.5px; font-weight: 700; color: var(--text-muted); letter-spacing: 0.04em;
     padding: 10px 2px 2px; border-top: 1px solid var(--border-color); margin-top: 4px;
 }
-.app-sidebar .controls-area > .sb-group-label:first-child { border-top: none; margin-top: 0; padding-top: 0; }
-/* ทุกปุ่มในแถบนี้กว้างเท่ากันและชิดซ้ายเหมือนกันหมด อ่านเป็นรายการเดียวกัน ไม่ขาดๆ เกินๆ */
-.app-sidebar .controls-area button { justify-content: flex-start; }
-.app-sidebar .toggle-btn-group .toggle-btn { justify-content: center; }
-/* ตัวกรองมุมมอง ไม่ควรเด่นกว่าปุ่มบันทึก — ตอนเปิดใช้ป้ายสีอ่อนแทนพื้นทึบ */
-.app-sidebar .btn-toggle-visible { background: transparent; border-color: var(--border-strong); color: var(--text-secondary); font-weight: 500; }
+.app-sidebar .btn-toggle-visible { background: var(--card-bg); border-color: var(--border-color); color: var(--text-main); font-weight: 500; padding: 8px 10px; }
 .app-sidebar .btn-toggle-visible:hover { background: var(--header-bg); }
 .app-sidebar .btn-toggle-visible.active { background: var(--btn-primary-soft); border-color: var(--btn-primary); color: var(--btn-primary); font-weight: 600; }
-/* ปุ่มลบ/ล้างข้อมูล (ทำแล้วย้อนกลับไม่ได้) ใช้โทนแดงแยกจากปุ่มอื่นในแถบเดียวกัน กันกดพลาด */
+.app-sidebar .btn-toggle-visible i { width: 16px; text-align: center; color: var(--text-secondary); }
+#autoPlanBtn i { color: var(--btn-primary); }
 .app-sidebar .btn-toggle-visible.danger { color: var(--danger); border-color: var(--danger); }
+.app-sidebar .btn-toggle-visible.danger i { color: var(--danger); }
 .app-sidebar .btn-toggle-visible.danger:hover { background: var(--danger-soft); }
-/* โซนย่อยของปุ่มที่ "ทำงานกับ Model ที่เลือกไว้" (หน้าสต็อก) — แยกกรอบ+พื้นหลังจางๆ ออกจากปุ่มเลือก/ยกเลิกเลือกด้านบน กันสับสนว่าปุ่มไหนเป็นกลุ่มไหน */
+/* โซนปุ่มที่ "ทำกับ Model ที่เลือกไว้" (หน้าสต็อก) — แยกกรอบจางๆ กันสับสนว่าปุ่มไหนเป็นกลุ่มไหน */
 .sidebar-subsection { background: var(--header-bg); border-radius: var(--radius-sm); padding: 2px 8px 8px; display: flex; flex-direction: column; gap: 6px; }
 .sidebar-subsection .sb-group-label { border-top: none; margin-top: 0; }
-.app-sidebar .btn-send-plan { margin-top: 2px; }
-/* กระดิ่งย้ายขึ้นไปอยู่แถวชื่อแอปด้านบน (ทุกคนใช้ได้ ไม่ใช่เครื่องมือแก้ไข) */
-/* แถวปุ่มบนสุด (บัญชี/เพิ่มเติม/แจ้งเตือน/ภาษา) — เรียงตามที่ต้องการ: เข้าสู่ระบบ, เพิ่มเติม, แจ้งเตือน อยู่แถวแรก ส่วนภาษาลงแถว 2 เสมอ
-   ใช้ CSS order สลับลำดับการแสดงผล (ไม่ต้องยุ่งกับลำดับ DOM/JS ที่ append กระดิ่ง+เพิ่มเติมไว้) และให้ปุ่มภาษา flex-basis:100% บังคับให้ตกบรรทัดใหม่เสมอ ไม่ใช่แค่ตอนที่ไม่พอ
-   ยอมให้แถวแรกตกบรรทัดต่อได้ด้วย (flex-wrap) ถ้าพื้นที่ไม่พอจริงๆ แทนที่จะบีบปุ่มจนตัวหนังสือตัดคำเองหรือทะลุขอบ sidebar */
-.sidebar-brand .brand-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; row-gap: 6px; width: 100%; }
-.sidebar-brand .bell-wrap .btn-bell { width: 32px; height: 32px; padding: 0; justify-content: center; }
-.sidebar-brand .bell-wrap .bell-label { display: none; }
-.sidebar-brand .bell-wrap { width: auto; position: static; order: 3; }
-.sidebar-brand .more-menu-wrap .btn-more { width: 32px; height: 32px; padding: 0; justify-content: center; }
-.sidebar-brand .more-menu-wrap .btn-more span { display: none; }
-.sidebar-brand .more-menu-wrap { width: auto; order: 2; }
-/* ปุ่มสลับภาษา TH/EN — อยู่แถวชื่อแอปด้านบนเหมือนกระดิ่ง (ทุกคนใช้ได้ ไม่ใช่แค่โหมดแก้ไข) ขนาดกะทัดรัดเท่าปุ่มไอคอนข้างๆ ไม่ยืดเต็มความกว้าง sidebar แบบ toggle-btn-group ทั่วไป
-   ห่อด้วย .lang-row-wrap ที่ flex-basis:100% แทนที่จะใส่ตรงๆ บน #langToggleGroup เอง — กันไม่ให้พื้นหลังของเม็ดยา TH/EN ยืดเต็มแถวไปด้วย (อยากได้แค่ "บังคับให้ตกบรรทัดใหม่เสมอ" ไม่ใช่ทำให้เม็ดยากว้างเต็มแถว) */
-.lang-row-wrap { flex-basis: 100%; display: flex; justify-content: flex-end; align-items: center; gap: 6px; order: 5; }
+.app-sidebar #saveBtn { justify-content: center; padding: 10px; }
+.app-sidebar .btn-pill-group { display: flex; }
+.app-sidebar .btn-pill-group .btn-pill { flex: 1; height: 34px; }
+.app-sidebar .btn-send-plan { padding: 8px 10px; }
+.sidebar-login-hint {
+    margin-top: auto; display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 9px;
+    border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--card-bg); color: var(--text-main);
+    font-family: inherit; font-size: 13px; font-weight: 500; cursor: pointer;
+}
+.sidebar-login-hint:hover { border-color: var(--btn-primary); color: var(--btn-primary); }
+.sidebar-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding-top: 10px; border-top: 1px solid var(--border-color); }
+.sidebar-foot-icons { display: flex; gap: 6px; }
 #langToggleGroup { width: auto; padding: 2px; flex-shrink: 0; }
-#langToggleGroup .toggle-btn { flex: 0 0 auto; padding: 5px 9px; font-size: 11px; }
-/* ปุ่มโหมดมืด — อยู่แถวเดียวกับ TH/EN ตามที่ขอ */
-.dark-mode-toggle {
+#langToggleGroup .toggle-btn { flex: 0 0 auto; padding: 5px 10px; font-size: 11.5px; }
+.dark-mode-toggle, .kiosk-toggle-btn {
     width: 32px; height: 32px; flex-shrink: 0; border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
     background: var(--card-bg); color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 13px; transition: 0.15s;
 }
-.dark-mode-toggle:hover { background: var(--header-bg); color: var(--btn-primary); }
+.dark-mode-toggle:hover, .kiosk-toggle-btn:hover { background: var(--header-bg); color: var(--btn-primary); }
 body.dark-mode .dark-mode-toggle { background: var(--btn-primary-soft); color: var(--btn-primary); border-color: var(--btn-primary); }
-/* ปุ่มโหมดจอรวม/ทีวี — ย้ายมาจากแถบเครื่องมือเดิม (ไม่เคยถูกซ่อนตามหน้าอยู่แล้ว จึงย้ายมาอยู่แถวเดียวกับ TH/EN/โหมดมืดถาวรได้เลย) กะทัดรัดแบบเดียวกับปุ่มข้างๆ แทนปุ่มยาวมีตัวหนังสือแบบเดิม */
-.kiosk-toggle-btn {
-    width: 32px; height: 32px; flex-shrink: 0; border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
-    background: var(--card-bg); color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 13px; transition: 0.15s;
-}
-.kiosk-toggle-btn:hover { background: var(--header-bg); color: var(--btn-primary); }
-/* ปุ่ม Login/Admin Mode ย้ายมาอยู่แถวชื่อแอปด้านบนคู่กับ TH/EN + กระดิ่งด้วย ทำกะทัดรัดแบบเดียวกับปุ่มข้างๆ
-   ข้อความยาวได้หลายแบบ (Login/เข้าสู่ระบบ สั้น, Admin Mode สั้น, แต่ "ชื่อผู้ใช้ (BW, LC, CW)" ตอน login แบบจำกัดสิทธิ์อาจยาวมาก)
-   จึงตัดด้วย ellipsis ถ้ายาวเกินไปแทนที่จะดันปุ่มอื่นล้นหรือตัวหนังสือขึ้นบรรทัดใหม่ในปุ่มเดียวกัน (ตัดคำภาษาไทยกลางคำ) */
-.sidebar-brand .admin-mode-wrap { width: auto; max-width: 100%; margin-top: 0; padding-top: 0; border-top: none; flex-shrink: 1; min-width: 0; order: 1; }
-.sidebar-brand .admin-mode-wrap .btn-login { width: auto; padding: 5px 10px; font-size: 12px; gap: 5px; min-width: 0; }
-.sidebar-brand .admin-mode-wrap .btn-login:first-child { flex: 0 1 auto; min-width: 0; }
-.sidebar-brand .admin-mode-wrap .login-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; max-width: 130px; vertical-align: middle; }
-/* กระดิ่งอยู่ชิดขอบขวาของ sidebar ที่แคบ (240px) — panel กว้าง 320px ถ้าอิงตำแหน่งกระดิ่งเองจะล้นขอบจอซ้าย (right:0 ทำให้ left ติดลบ)
-   จึงให้ panel อิงตำแหน่งจาก .sidebar-brand ทั้งแถบแทน (กว้างเท่า sidebar) ชิดซ้ายสุดของแถบ กางออกทางขวาเข้าไปในเนื้อหาแทน ไม่มีทางล้นซ้ายอีก */
-.sidebar-brand { position: relative; }
-.sidebar-brand .bell-panel { left: 0; right: auto; top: calc(100% + 8px); }
-/* 1 Day / 1 Week / 1 Month — เรียงเป็นแถวเดียวเต็มความกว้าง ไม่ตกบรรทัด */
-.app-sidebar .toggle-btn-group { display: flex; }
-.app-sidebar .toggle-btn-group .toggle-btn { flex: 1; padding: 7px 2px; font-size: 11px; white-space: nowrap; }
-/* บันทึก + undo/redo อยู่แถวเดียวกัน ประหยัดความสูง */
-.app-sidebar #saveBtn { flex: 1; }
-.app-sidebar .btn-pill-group { width: auto; flex: 0 0 auto; }
-.app-sidebar .save-row-wrap { display: flex; gap: 6px; width: 100%; }
-.app-sidebar .admin-mode-wrap { display: flex !important; }
-.app-sidebar .more-menu-panel { left: 0; right: auto; width: 210px; }
-/* left:0 มีผลเฉพาะตอนกระดิ่งยังอยู่ในแถบเครื่องมือแนวตั้งเต็มความกว้าง — ตอนนี้กระดิ่งย้ายไปแถวชื่อแอปด้านบนแล้ว (ดู .sidebar-brand ด้านล่าง) ไม่ต้องใช้กฎนี้กับมัน ไม่งั้น panel 320px จะกางออกไปทางขวาจนล้นจอ */
-.app-sidebar .controls-area .bell-panel { left: 0; right: auto; }
-.bell-panel { max-width: calc(100vw - 24px); }
-.app-sidebar .controls-area { display: flex; }
 
-.dashboard-container {
-    position: relative;
-    max-width: 1600px; margin: 0 auto; background: var(--card-bg);
-    border-radius: var(--radius-lg);
-    padding: 28px; box-shadow: var(--shadow-sm); border: 1px solid var(--border-color);
+/* --- แถบบนสุด --- */
+.topbar {
+    position: sticky; top: 0; z-index: 250; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    min-height: 60px; padding: 10px 22px; background: var(--card-bg); border-bottom: 1px solid var(--border-color);
 }
+.topbar-title { display: flex; align-items: center; gap: 10px; min-width: 0; }
+#pageTitle { margin: 0; font-size: 17px; font-weight: 600; color: var(--text-main); display: flex; align-items: center; gap: 9px; white-space: nowrap; letter-spacing: -0.2px; }
+#pageTitle i { color: var(--btn-primary); }
+#pageTitle .proc-dot { width: 11px; height: 11px; }
+.rev-chip {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; color: var(--text-secondary);
+    background: var(--header-bg); border: 1px solid var(--border-color); border-radius: 99px; padding: 2px 10px; white-space: nowrap;
+}
+.rev-chip input { width: 32px; border: 1px solid transparent; background: transparent; font-family: inherit; font-size: 12px; font-weight: 700; color: var(--text-main); text-align: center; padding: 1px 2px; border-radius: 6px; outline: none; }
+.rev-chip input:not([readonly]) { border-color: var(--border-strong); cursor: text; }
+.rev-updated { font-weight: 500; color: var(--text-muted); }
+.date-nav { display: flex; align-items: center; gap: 6px; margin-left: 8px; }
+.icon-btn {
+    width: 32px; height: 32px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--card-bg);
+    color: var(--text-secondary); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 12px; flex-shrink: 0;
+}
+.icon-btn:hover { border-color: var(--btn-primary); color: var(--btn-primary); }
+.date-box {
+    position: relative; display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px;
+    border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--card-bg);
+    font-weight: 600; white-space: nowrap; cursor: pointer; color: var(--text-main);
+}
+.date-box:hover { border-color: var(--btn-primary); }
+.date-box i { color: var(--text-muted); }
+/* ช่องเลือกวันที่จริงซ่อนไว้ใต้ป้าย — คลิกป้ายแล้วเปิดปฏิทินด้วย showPicker() */
+.date-box .date-picker { position: absolute; left: 0; bottom: 0; width: 100%; height: 100%; opacity: 0; pointer-events: none; border: none; padding: 0; }
+.date-nav .toggle-btn-group { border: 1px solid var(--border-color); }
+.date-nav .toggle-btn { padding: 4px 11px; font-size: 12.5px; }
+.chip-btn {
+    height: 32px; padding: 0 12px; border: 1px solid var(--border-color); border-radius: 99px; background: var(--card-bg);
+    font-family: inherit; font-size: 12px; font-weight: 600; color: var(--text-secondary); cursor: pointer; white-space: nowrap;
+}
+.chip-btn:hover { border-color: var(--btn-primary); color: var(--btn-primary); }
+.topbar-spacer { flex: 1; }
+.topbar-meta { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
+.topbar .viewer-panel { left: auto; right: 0; }
+.search-box {
+    display: flex; align-items: center; gap: 8px; height: 32px; width: 200px; padding: 0 10px;
+    border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--card-bg); color: var(--text-muted);
+}
+.search-box:focus-within { border-color: var(--btn-primary); }
+.search-box .search-input { border: none; padding: 0; width: 100%; height: 100%; background: transparent; }
+.topbar .btn-bell { width: 34px; height: 34px; font-size: 14px; }
+.topbar .bell-wrap, .topbar .more-menu-wrap { position: relative; }
+.topbar .btn-login { height: 36px; border-radius: 99px; padding: 0 14px; font-size: 12.5px; gap: 8px; }
+.topbar .btn-login.logged-in { background: var(--card-bg); color: var(--text-main); border-color: var(--border-strong); padding: 0 12px 0 4px; }
+.user-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--btn-primary); color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.btn-login .login-label { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; max-width: 150px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.btn-login .login-label small { font-size: 10px; font-weight: 500; color: var(--text-muted); }
+.bell-panel { max-width: calc(100vw - 24px); }
+
+.dashboard-container { position: relative; padding: 16px 22px 24px; }
+.controls-area { display: none; }
+.app-sidebar .controls-area { display: flex; }
 
 /* จอเล็ก: sidebar กลายเป็นลิ้นชักที่กดเปิด-ปิด */
 @media (max-width: 900px) {
@@ -219,8 +222,11 @@ body.dark-mode .dark-mode-toggle { background: var(--btn-primary-soft); color: v
     .app-sidebar.open { display: flex; }
     .app-sidebar.open .sidebar-close { display: block; }
     .sidebar-toggle { display: flex; }
-    .app-main { padding: 14px; }
-    .dashboard-container { padding: 16px; }
+    .topbar { padding: 10px 14px; }
+    .date-nav { order: 10; flex-basis: 100%; margin-left: 0; flex-wrap: wrap; }
+    .search-box { width: 140px; }
+    .rev-updated, .topbar-meta .sync-status { display: none; }
+    .dashboard-container { padding: 12px 14px 20px; }
 }
 
 /* --- Skeleton loading (แสดงระหว่างรอโหลดข้อมูลครั้งแรกจาก server) --- */
@@ -237,10 +243,6 @@ body.dark-mode .skeleton-row { background: linear-gradient(90deg, #22252e 25%, #
 .skeleton-row.w5 { width: 85%; }
 @keyframes skeletonPulse { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
-.header-section { display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; flex-wrap: wrap; gap: 15px; }
-.title-area h1 { margin: 0; font-size: 21px; color: var(--text-main); font-weight: 600; letter-spacing: -0.3px; }
-.title-area p { margin: 8px 0 0 0; color: var(--text-secondary); font-size: 13px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.controls-area { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 
 .viewer-count { display: flex; align-items: center; gap: 5px; color: var(--text-secondary); }
 
@@ -818,8 +820,6 @@ tr:hover .action-btns { opacity: 1; }
 @media (max-width: 768px) {
     body { padding: 10px; font-size: 12px; }
     .dashboard-container { padding: 16px; }
-    .header-section { flex-direction: column; align-items: flex-start; }
-    .controls-area { width: 100%; }
     .editor-name-input, .date-picker { width: 100%; }
     .home-grid, .home-row2, .summary-grid { grid-template-columns: 1fr; }
     /* จอแคบ: คอลัมน์ตัวเลข (สต็อก/คงเหลือ/สถานะ) ความกว้างคงที่รวมกันแล้วเหลือที่ให้ชื่อ Model น้อยเกินไป พอชื่อยาวจนขึ้นบรรทัดใหม่ ตัวเลขข้างๆ จะทับกัน — ให้สลับมาเรียงเป็น 2 แถวแทน (ชื่อ Model เต็มแถวบน, ตัวเลขอยู่แถวล่างเรียงติดกันแทน) */
@@ -842,7 +842,7 @@ body.kiosk-mode .app-main { padding: 0; }
 body.kiosk-mode .dashboard-container { max-width: 100%; margin: 0; border-radius: 0; border: none; box-shadow: none; min-height: 100vh; padding: 40px; }
 /* ตารางปกติมี max-height + scroll ในตัวเอง (.table-responsive) ต้องปลดออกตอนจอรวม ไม่งั้น fitKioskToScreen() วัดความสูงจริงของเนื้อหาไม่ได้ ย่อจอให้พอดีไม่ได้ */
 body.kiosk-mode .table-responsive { max-height: none; overflow: visible; }
-body.kiosk-mode .title-area h1 { font-size: 40px; }
+body.kiosk-mode #pageTitle { font-size: 34px; }
 body.kiosk-mode .sync-status, body.kiosk-mode .viewer-count { font-size: 18px; }
 body.kiosk-mode table { font-size: 22px; }
 body.kiosk-mode th { font-size: 16px; padding: 16px 10px; }
@@ -884,3 +884,162 @@ body.kiosk-mode .stock-alert-status { font-size: 15px; }
 body.kiosk-mode .announcements-header h3 { font-size: 20px; }
 body.kiosk-mode .announcement-item { font-size: 18px; }
 body.kiosk-mode .model-variant-badge, body.kiosk-mode .today-badge { font-size: 13px; }
+
+/* ===================== ดีไซน์ใหม่ (ตุลาคม 2026) — ตาราง/การ์ด/ประกาศ ===================== */
+.loading-overlay { background: var(--bg-color); border-radius: 0; padding: 16px 22px; }
+.toggle-btn-group { background: var(--card-bg); border: 1px solid var(--border-color); }
+.toggle-btn.active { background: var(--btn-primary-soft); color: var(--btn-primary); box-shadow: none; }
+
+/* แถบประกาศ: ย่อเหลือบรรทัดเดียว กด "ดูทั้งหมด" เพื่อกาง */
+.announcements-card {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 0 0 12px;
+    background: var(--btn-primary-soft); border: 1px solid color-mix(in srgb, var(--btn-primary) 35%, transparent);
+    border-radius: var(--radius-md); padding: 8px 14px;
+}
+.announcements-card h3 { margin: 0; font-size: 13px; font-weight: 600; color: var(--btn-primary-dark); white-space: nowrap; display: flex; align-items: center; gap: 8px; }
+.announcements-card .announcements-list { flex: 1; min-width: 0; gap: 4px; }
+.announcements-card:not(.collapsed) .announcements-list { flex-basis: 100%; order: 3; }
+.announce-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.announce-toggle { background: none; border: none; padding: 2px 4px; color: var(--btn-primary); font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.announce-toggle:hover { text-decoration: underline; }
+.announcements-card .btn-add { width: auto; margin: 0; padding: 3px 8px; font-size: 12px; }
+.announcements-card.collapsed .announcement-item:not(:first-child) { display: none; }
+.announcements-card.collapsed .announcement-item { padding: 0; border: none; align-items: center; }
+.announcements-card.collapsed .announcement-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* การ์ดสรุปหน้าแผน: แถวเดียวเตี้ยๆ */
+.summary-grid { margin-bottom: 12px; }
+.metric { flex-direction: row; align-items: center; justify-content: flex-start; gap: 12px; padding: 10px 14px; border-left: 1px solid var(--border-color); }
+.metric-ic { width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: var(--btn-primary-soft); color: var(--btn-primary); }
+.metric.ok .metric-ic { background: var(--success-soft); color: var(--success); }
+.metric.warn .metric-ic { background: var(--warning-soft); color: var(--weekend-head-text); }
+.metric-body { display: flex; flex-direction: column; min-width: 0; }
+.metric-body > span { font-size: 11.5px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.metric .sub { font-size: 11.5px; margin: 0; color: var(--text-muted); }
+.metric .today-stat-value { font-size: 20px; color: var(--text-main); }
+.week-panel { display: flex; align-items: center; gap: 14px; padding: 8px 14px; }
+.week-panel .panel-title { margin: 0; white-space: nowrap; }
+.week-chart { height: 54px; flex: 1; }
+
+/* กล่องตารางแผน + แถบเครื่องมือของตาราง */
+#tableContainer { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-md); overflow: hidden; }
+#tableContainer .table-responsive { border: none; border-radius: 0; max-height: calc(100vh - 250px); min-height: 320px; }
+.table-toolbar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border-color); flex-wrap: wrap; }
+.table-toolbar .btn-toggle-visible, #stockToolbarRight .btn-toggle-visible {
+    padding: 5px 12px; border-radius: 99px; font-size: 12.5px; font-weight: 500;
+    background: var(--card-bg); color: var(--text-secondary); border-color: var(--border-color);
+}
+.table-toolbar .btn-toggle-visible:hover, #stockToolbarRight .btn-toggle-visible:hover { background: var(--header-bg); }
+.table-toolbar .btn-toggle-visible.active, #stockToolbarRight .btn-toggle-visible.active { background: var(--btn-primary-soft); color: var(--btn-primary); border-color: var(--btn-primary); }
+.table-hint { margin-left: auto; font-size: 11.5px; color: var(--text-muted); display: flex; align-items: center; gap: 5px; }
+.weekend-swatch { width: 10px; height: 10px; border-radius: 3px; background: var(--weekend-head); border: 1px solid color-mix(in srgb, var(--weekend-head-text) 30%, transparent); display: inline-block; }
+
+/* ตาราง: แถวเตี้ยลง เส้นคั่นบางๆ แทนแถวสลับสี */
+#mainTable th { text-transform: none; letter-spacing: 0; font-size: 12px; padding: 7px 6px; }
+#mainTable th .th-sub { display: block; font-weight: 500; font-size: 10.5px; color: var(--text-muted); }
+#mainTable th.th-model { text-align: left; padding-left: 14px; }
+th:nth-child(2) { position: relative; left: auto; z-index: 10; }
+.col-model { left: 0; }
+#stockTable .col-model { position: static; }
+#mainTable td { padding: 3px 6px; }
+#mainTable td.col-model { padding-left: 14px; }
+.row-even td, .row-odd td { border-bottom: 1px solid var(--border-color); }
+.row-odd td:not(.col-group):not(.weekend-cell) { background-color: transparent; }
+.row-odd td.col-model { background-color: var(--card-bg); }
+th.today-header { background: var(--btn-primary-soft) !important; color: var(--btn-primary) !important; }
+th.today-header .th-sub { color: var(--btn-primary); }
+td.today-cell { background-color: color-mix(in srgb, var(--btn-primary-soft) 55%, var(--card-bg)); }
+.hrs-label { text-align: left; }
+.tot-label { text-align: left; padding-left: 14px !important; }
+
+/* แถบหัวกลุ่ม (แทนคอลัมน์กลุ่มเดิม) — กดเพื่อพับ/กาง */
+tr.grp-band td { background: var(--header-bg); padding: 0; text-align: left; cursor: pointer; border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); }
+tr.grp-band:hover td { background: var(--btn-primary-soft); }
+.grp-band-inner { position: sticky; left: 0; display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; font-size: 12px; white-space: nowrap; }
+.grp-chevron { font-size: 10px; color: var(--text-muted); width: 10px; }
+.grp-name { font-weight: 700; color: var(--text-main); }
+.grp-meta { color: var(--text-muted); }
+.grp-admin { display: inline-flex; align-items: center; gap: 10px; margin-left: 14px; cursor: default; }
+.grp-admin .btn-edit-type { width: auto; margin: 0; padding: 2px 8px; }
+.grp-admin label { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-secondary); }
+.grp-admin input { width: 54px; padding: 2px 4px; border: 1px solid var(--border-strong); border-radius: 4px; font-size: 11.5px; text-align: center; }
+.grp-collapsed-row { display: none; }
+#mainTable.searching .grp-collapsed-row { display: table-row; }
+
+/* ช่องที่มีแผนเป็นป้ายสี ยิ่งใช้เครื่องมากยิ่งเข้ม */
+input.table-input[data-lvl="1"], input.table-input[data-lvl="2"], input.table-input[data-lvl="3"] { display: block; max-width: 58px; margin: 0 auto; padding: 3px 2px; }
+input.table-input[data-lvl="1"] { background: color-mix(in srgb, var(--btn-primary) 14%, var(--card-bg)); color: var(--btn-primary-dark); }
+input.table-input[data-lvl="2"] { background: color-mix(in srgb, var(--btn-primary) 32%, var(--card-bg)); color: var(--btn-primary-dark); }
+input.table-input[data-lvl="3"] { background: var(--btn-primary); color: #fff; }
+body.dark-mode input.table-input[data-lvl="1"], body.dark-mode input.table-input[data-lvl="2"] { color: var(--text-main); }
+input.table-input[data-lvl]:not([readonly]):focus { background: var(--btn-primary-soft); color: var(--text-main); }
+
+/* หน้าแรก: การ์ด 5 กระบวนการแถวเดียว */
+.home-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); margin-bottom: 12px; }
+@media (max-width: 1200px) { .home-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 700px) { .home-grid { grid-template-columns: 1fr 1fr; } }
+.proc-card { flex-direction: column; align-items: stretch; gap: 6px; padding: 12px 14px; border-left-width: 1px; cursor: pointer; transition: border-color 0.15s; }
+.proc-card:hover { border-color: var(--btn-primary); }
+.pc-head { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.proc-card .pname { font-size: 12.5px; }
+.proc-card .status-pill { font-size: 10.5px; padding: 2px 8px; border-radius: 99px; font-weight: 600; }
+.s-ok { background: var(--success-soft); color: var(--success); }
+.s-warn { background: var(--warning-soft); color: var(--weekend-head-text); }
+.s-bad { background: var(--danger-soft); color: var(--danger); }
+.s-none { background: var(--header-bg); color: var(--text-muted); }
+.proc-card .pstock { font-size: 22px; }
+.proc-card .pstock small { font-size: 11.5px; color: var(--text-secondary); font-weight: 500; margin-left: 5px; }
+.pc-bar { height: 6px; border-radius: 99px; background: var(--header-bg); overflow: hidden; display: flex; }
+.pc-bar i { display: block; height: 100%; }
+.pc-foot { display: flex; justify-content: space-between; gap: 8px; font-size: 11.5px; color: var(--text-secondary); }
+.proc-card.empty { background: color-mix(in srgb, var(--header-bg) 60%, var(--card-bg)); }
+.pc-empty { color: var(--text-muted); font-size: 13.5px; padding: 6px 0; }
+.heat-row { cursor: pointer; }
+.heat-row:hover .rowlab { color: var(--btn-primary); }
+
+/* โหมดจอทีวี: เหลือแค่ชื่อหน้า + สถานะซิงค์ ซ่อนเครื่องมือในแถบบน */
+body.kiosk-mode .topbar { position: static; }
+body.kiosk-mode .date-nav, body.kiosk-mode .search-box, body.kiosk-mode .topbar .bell-wrap,
+body.kiosk-mode .topbar .more-menu-wrap, body.kiosk-mode .topbar .admin-mode-wrap, body.kiosk-mode .table-toolbar { display: none !important; }
+
+/* พิมพ์/PDF: ทุกกลุ่มกางเสมอ ตัวเลขเป็นตัวดำบนพื้นขาว (ไม่ใช่ป้ายสี) */
+.print-preview-active .grp-collapsed-row { display: table-row; }
+.print-preview-active .grp-band-inner { position: static; }
+.print-preview-active tr.grp-band td { background: #eef0f3; }
+.print-preview-active input.table-input[data-lvl] { background: transparent !important; color: #000 !important; max-width: none; }
+.print-preview-active .announcements-card.collapsed .announcement-item { display: flex; }
+.print-preview-active .announcements-card.collapsed .announcement-text { white-space: pre-wrap; }
+.print-preview-active #tableContainer { border: none; border-radius: 0; }
+.print-preview-active #tableContainer .table-responsive { max-height: none; min-height: 0; }
+.print-preview-active .dashboard-container { padding: 0; }
+.print-preview-active .hide-on-print { display: none !important; }
+@media print {
+    .grp-collapsed-row { display: table-row; }
+    .grp-band-inner { position: static; }
+    tr.grp-band td { background: #eef0f3; }
+    input.table-input[data-lvl] { background: transparent !important; color: #000 !important; max-width: none; }
+    .announcements-card.collapsed .announcement-item { display: flex; }
+    .announcements-card.collapsed .announcement-text { white-space: pre-wrap; }
+    #tableContainer { border: none; border-radius: 0; }
+    #tableContainer .table-responsive { max-height: none; min-height: 0; }
+    .dashboard-container { padding: 0; }
+    .hide-on-print { display: none !important; }
+}
+
+/* แถบบนต้องอยู่บรรทัดเดียวบนจอคอม — ชื่อหน้ายอมตัดด้วย … ก่อนที่ปุ่มจะตกบรรทัด */
+@media (min-width: 901px) {
+    .topbar { flex-wrap: nowrap; }
+    .topbar-title { flex-shrink: 1; min-width: 0; }
+    #pageTitle { min-width: 0; overflow: hidden; text-overflow: ellipsis; display: block; }
+    #pageTitle .proc-dot, #pageTitle i { margin-right: 8px; vertical-align: 1px; }
+    .topbar > *:not(.topbar-title):not(.topbar-spacer) { flex-shrink: 0; }
+}
+.search-box { width: 170px; }
+@media (max-width: 1700px) { .rev-updated { display: none; } }
+@media (max-width: 1450px) { .topbar-meta .sync-status { display: none; } .search-box { width: 140px; } }
+
+/* Shipment ของ BW ที่คำนวณจากแผน LC (ไม่ใช่ช่องกรอก) */
+.ship-auto { display: inline-flex; flex-direction: column; align-items: center; gap: 3px; }
+.ship-num { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text-main); }
+.ship-src { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 600; color: #0369a1; background: #e8f6fd; border-radius: 99px; padding: 1px 8px; white-space: nowrap; }
+body.dark-mode .ship-src { color: #7dd3fc; background: #0c2a3a; }

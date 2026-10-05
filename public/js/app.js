@@ -85,6 +85,25 @@ const I18N = {
     count_sheet_print: { th: 'พิมพ์ใบนับ', en: 'Print count sheet' },
     count_sheet_print_title: { th: 'พิมพ์ใบนับสต็อกของแท็บนี้ ไว้เดินจดตัวเลข', en: 'Print a stock count sheet for this tab' },
     count_entry: { th: 'กรอกจากใบนับ', en: 'Enter from sheet' },
+    lc_no_plan_today: { th: 'ไม่มีแผนวันนี้', en: 'no plan this day' },
+    ship_auto_title: { th: 'คำนวณจากแผนผลิต LC ของวันที่เลือก ตามความสัมพันธ์ใน BOM (เครื่อง × Hrs × 3600 ÷ MCT × OA% × อัตราส่วน)', en: 'Calculated from the LC plan on the selected day via the BOM (M/C × Hrs × 3600 ÷ MCT × OA% × ratio)' },
+    plan_title_short: { th: 'แผน M/C', en: 'M/C plan' },
+    nav_plans_label: { th: 'แผนการผลิต', en: 'Production plans' },
+    login_to_edit: { th: 'เข้าสู่ระบบเพื่อแก้ไข', en: 'Log in to edit' },
+    date_prev_title: { th: 'ช่วงก่อนหน้า', en: 'Previous period' },
+    date_next_title: { th: 'ช่วงถัดไป', en: 'Next period' },
+    today_btn: { th: 'วันนี้', en: 'Today' },
+    viewers_title: { th: 'คนที่กำลังเปิดหน้านี้อยู่', en: 'People viewing now' },
+    collapse_all: { th: 'พับทุกกลุ่ม', en: 'Collapse all' },
+    expand_all: { th: 'กางทุกกลุ่ม', en: 'Expand all' },
+    weekend_label: { th: 'วันหยุด', en: 'Weekend' },
+    table_hint: { th: 'คลิกช่องเพื่อแก้ · Enter/ลูกศร ไปช่องถัดไป', en: 'Click a cell to edit · Enter/arrows to move' },
+    group_empty_collapsed: { th: 'ว่างในช่วงนี้ (พับไว้)', en: 'empty in this range (collapsed)' },
+    announce_view_all: { th: 'ดูทั้งหมด', en: 'View all' },
+    announce_collapse: { th: 'ย่อ', en: 'Collapse' },
+    plan_7d_prefix: { th: 'แผน 7 วัน', en: '7-day plan' },
+    stock_not_entered: { th: 'ยังไม่ได้กรอกสต็อก', en: 'No stock entered yet' },
+    open_plan_hint: { th: 'คลิกเพื่อเปิดแผน', en: 'Click to open the plan' },
     auto_plan: { th: 'Auto Plan (LC/BW จาก CW)', en: 'Auto Plan (LC/BW from CW)' },
     auto_plan_title: { th: 'กรอกเครื่อง CW แล้วให้ระบบคำนวณ LC / BW ตาม BOM', en: 'Enter CW machines and let the system calculate LC / BW from the BOM' },
     count_scan: { th: 'อ่านจากใบสแกน', en: 'Read scanned sheet' },
@@ -93,7 +112,7 @@ const I18N = {
     problems_suffix: { th: 'มีปัญหา', en: 'with problems' },
     th_current_stock_sub: { th: '(จำนวนชิ้น/Pcs)', en: '(Pcs)' },
     th_last_counted_sub: { th: '(เมื่อไหร่/ใคร)', en: '(when / by whom)' },
-    th_planned_used_sub: { th: '(จำนวนชิ้น/Pcs — กรอกเอง)', en: '(Pcs — entered manually)' },
+    th_planned_used_sub: { th: '(ชิ้น/Pcs — BW ที่ผูก LC คิดจากแผน LC)', en: '(Pcs — BW linked to LC uses the LC plan)' },
     attention_list_title: { th: 'รายการที่ต้องดูก่อน', en: 'Items needing attention' },
     th_process: { th: 'กระบวนการ', en: 'Process' },
     th_current_stock: { th: 'สต็อกปัจจุบัน', en: 'Current stock' },
@@ -139,6 +158,7 @@ function setLang(lang) {
     applyStaticLangText();
     updatePageTitleForCurrentProcess();
     updateAdminUI();
+    updateDateRangeLabel();
     rerenderCurrentView();
 }
 // อัปเดตแค่หัวข้อหน้า (pageTitle/printTitle) ตามภาษาปัจจุบัน — แยกจาก switchProcess() เพราะ switchProcess()
@@ -151,7 +171,7 @@ function updatePageTitleForCurrentProcess() {
         document.getElementById('pageTitle').innerHTML = `<i class="fas fa-boxes-stacked"></i> ${t('nav_stock')}`;
         document.getElementById('printTitle').innerText = t('nav_stock');
     } else if (processConfig[currentProcess]) {
-        document.getElementById('pageTitle').innerHTML = `<i class="fas fa-industry"></i> ${processConfig[currentProcess].title}`;
+        document.getElementById('pageTitle').innerHTML = `<span class="proc-dot proc-dot-${currentProcess}"></span> ${t('plan_title_short')} · ${currentProcess}`;
         document.getElementById('printTitle').innerText = processConfig[currentProcess].title;
     }
 }
@@ -1019,6 +1039,7 @@ function rerenderCurrentView() {
     if (currentProcess === 'Overview') { renderOverview(); renderAnnouncements(); }
     else if (currentProcess === 'Stock') renderStockPage();
     else generateTable();
+    updateNavBadges();
 }
 
 // === Server sync ===
@@ -1193,7 +1214,44 @@ function flashChangedCells(prevData, newData) {
 }
 
 // === Core Application Routing ===
+// ป้ายช่วงวันที่บนแถบด้านบน เช่น "5 – 11 ต.ค. 2026" — ใช้ปฏิทินสากล (ค.ศ.) ไม่ใช่ พ.ศ. ให้ตรงกับหัวตาราง
+function updateDateRangeLabel() {
+    const el = document.getElementById('dateRangeLabel');
+    const val = document.getElementById('startDatePicker').value;
+    if (!el || !val) return;
+    const loc = appLang === 'en' ? 'en-GB' : 'th-TH-u-ca-gregory';
+    const start = new Date(val);
+    const isPlan = ['BW', 'LC', 'CW', 'AI'].includes(currentProcess);
+    const days = isPlan ? viewDays : 1;
+    if (days <= 1) {
+        el.textContent = start.toLocaleDateString(loc, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+        return;
+    }
+    const end = new Date(start); end.setDate(end.getDate() + days - 1);
+    const sameMonth = start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear();
+    const left = sameMonth ? String(start.getDate()) : start.toLocaleDateString(loc, { day: 'numeric', month: 'short' });
+    el.textContent = `${left} – ${end.toLocaleDateString(loc, { day: 'numeric', month: 'short', year: 'numeric' })}`;
+}
+function setStartDate(d) {
+    document.getElementById('startDatePicker').value = toISODateLocal(d);
+    handleDateChange();
+}
+function shiftDateRange(dir) {
+    const d = new Date(document.getElementById('startDatePicker').value);
+    const isPlan = ['BW', 'LC', 'CW', 'AI'].includes(currentProcess);
+    d.setDate(d.getDate() + dir * (isPlan ? viewDays : 1));
+    setStartDate(d);
+}
+function goToToday() { setStartDate(new Date()); }
+function openStartDatePicker(e) {
+    const inp = document.getElementById('startDatePicker');
+    if (e.target === inp) return;
+    e.preventDefault();
+    try { inp.showPicker(); } catch (err) { inp.focus(); }
+}
+
 function handleDateChange() {
+    updateDateRangeLabel();
     if (currentProcess === 'Overview') renderOverview();
     else if (currentProcess === 'Stock') renderStockPage();
     else generateTable();
@@ -1268,7 +1326,7 @@ function switchProcessRender(process) {
         updateStockProblemsOnlyBtnUI();
         renderStockPage();
     } else {
-        document.getElementById('pageTitle').innerHTML = `<i class="fas fa-industry"></i> ${processConfig[process].title}`;
+        document.getElementById('pageTitle').innerHTML = `<span class="proc-dot proc-dot-${process}"></span> ${t('plan_title_short')} · ${process}`;
         document.getElementById('printTitle').innerText = processConfig[process].title;
         document.getElementById('tableContainer').style.display = 'block';
         document.getElementById('viewToggleGroup').style.display = 'flex';
@@ -1288,6 +1346,13 @@ function switchProcessRender(process) {
         updateTimestampUI();
         generateTable();
     }
+    // ปุ่มซ่อน Model ว่างใช้ร่วมกันทั้งหน้าแผนและหน้าสต็อก — ย้ายไปไว้ในแถบเครื่องมือของหน้าที่เปิดอยู่
+    const hideBtn = document.getElementById('hideEmptyBtn');
+    const toolbarHost = process === 'Stock' ? document.getElementById('stockToolbarRight') : document.getElementById('planToolbar');
+    if (hideBtn && toolbarHost && hideBtn.parentElement !== toolbarHost) toolbarHost.prepend(hideBtn);
+    document.getElementById('searchBox').style.display = document.getElementById('searchInput').style.display === 'none' ? 'none' : 'flex';
+    updateDateRangeLabel();
+    updateNavBadges();
     updateAdminUI();
 }
 
@@ -1380,7 +1445,7 @@ function renderAnnouncements() {
     const addBtn = document.getElementById('addAnnouncementBtn');
     if (!card || !list) return;
 
-    card.style.display = (announcements.length > 0 || isAdmin) ? 'block' : 'none';
+    card.style.display = (announcements.length > 0 || isAdmin) ? 'flex' : 'none';
     addBtn.style.display = isAdmin ? 'flex' : 'none';
 
     if (announcements.length === 0) {
@@ -1398,7 +1463,21 @@ function renderAnnouncements() {
         </div>
     `).join('');
     // ใส่ข้อความผ่าน innerText ทีละอันกันปัญหา HTML injection จากข้อความประกาศ
-    list.querySelectorAll('.announcement-text').forEach((el, i) => { el.innerText = announcements[i].text; });
+    list.querySelectorAll('.announcement-text').forEach((el, i) => { el.textContent = announcements[i].text; });
+    updateAnnounceToggle(card, announcements.length);
+}
+
+// แถบประกาศย่อเหลือบรรทัดเดียว (ประกาศแรก) — กด "ดูทั้งหมด" เพื่อกางอ่านครบทุกอัน
+function updateAnnounceToggle(card, count) {
+    const btn = card.querySelector('.announce-toggle');
+    if (!btn) return;
+    const collapsed = card.classList.contains('collapsed');
+    btn.textContent = collapsed ? `${t('announce_view_all')} (${count})` : t('announce_collapse');
+}
+function toggleAnnouncementsExpanded(btn) {
+    const card = btn.closest('.announcements-card');
+    card.classList.toggle('collapsed');
+    updateAnnounceToggle(card, card.querySelectorAll('.announcement-item').length);
 }
 
 // ประกาศเฉพาะกระบวนการ — โชว์บนหน้าตาราง BW/LC/CW/AI (ไม่ใช่แค่หน้าแรก) และติดไปกับตอนพิมพ์/PDF ด้วยตามที่ขอ
@@ -1408,10 +1487,11 @@ function renderProcessAnnouncements() {
     const list = document.getElementById('processAnnouncementsList');
     if (!card || !list) return;
     const relevant = announcements.filter(a => !a.process || a.process === currentProcess);
-    card.style.display = relevant.length > 0 ? 'block' : 'none';
+    card.style.display = relevant.length > 0 ? 'flex' : 'none';
     if (relevant.length === 0) { list.innerHTML = ''; return; }
     list.innerHTML = relevant.map(() => `<div class="announcement-item"><span class="announcement-text"></span></div>`).join('');
-    list.querySelectorAll('.announcement-text').forEach((el, i) => { el.innerText = relevant[i].text; });
+    list.querySelectorAll('.announcement-text').forEach((el, i) => { el.textContent = relevant[i].text; });
+    updateAnnounceToggle(card, relevant.length);
 }
 
 async function addAnnouncement() {
@@ -1781,25 +1861,8 @@ function openStockCountEntry(prefill = null) {
     focusAt(0);
 }
 
-// สีสถานะสต็อกในวงโดนัท — ชุดเดียวกับป้ายสถานะในตาราง
+// สีสถานะสต็อก (แถบสัดส่วนในการ์ดหน้าแรก) — ชุดเดียวกับป้ายสถานะในตาราง
 const STOCK_DONUT_COLORS = { normal: '#16a34a', low: '#b45309', critical: '#dc2626', excess: '#6366f1' };
-
-// วงโดนัทวาดด้วย SVG ตรงๆ ไม่ต้องโหลด library ภายนอก (โหลดไม่ขึ้นทีเดียวกราฟหายทั้งหน้า)
-function stockDonutSVG(counts) {
-    const total = counts.normal + counts.low + counts.critical + counts.excess;
-    const segs = total
-        ? [[counts.normal, STOCK_DONUT_COLORS.normal], [counts.low, STOCK_DONUT_COLORS.low], [counts.critical, STOCK_DONUT_COLORS.critical], [counts.excess, STOCK_DONUT_COLORS.excess]]
-        : [[1, 'var(--border-color)']];
-    const t = total || 1;
-    let off = 0;
-    const rings = segs.filter(([v]) => v > 0).map(([v, c]) => {
-        const len = v / t * 100;
-        const el = `<circle cx="18" cy="18" r="15.9155" fill="none" stroke="${c}" stroke-width="4.2"
-            stroke-dasharray="${len.toFixed(2)} ${(100 - len).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}"></circle>`;
-        off += len; return el;
-    }).join('');
-    return `<svg viewBox="0 0 36 36" style="width:100%;height:100%;transform:rotate(-90deg);">${rings}</svg>`;
-}
 
 function simpleBarsHTML(items, unit, formatFn) {
     const max = Math.max(...items.map(i => i.value), 1);
@@ -1850,11 +1913,11 @@ function renderHomePanels(procs, rows) {
     document.getElementById('heatPanel').innerHTML = `
         <div class="panel-head">
             <p class="panel-title">${t('heat_panel_title')}</p>
-            <span class="panel-note">${t('heat_dark_note')}</span>
+            <span class="panel-note">${t('heat_dark_note')} · ${t('open_plan_hint')}</span>
         </div>
         <table class="heat">
             <thead><tr><th></th>${dateInfo.map((d, i) => `<th class="${d.weekend ? 'wk' : ''}">${d.short}${i === 0 ? `<br>${t('today_note')}` : ''}</th>`).join('')}</tr></thead>
-            <tbody>${series.map(s => `<tr>
+            <tbody>${series.map(s => `<tr class="heat-row" onclick="switchProcess('${s.p}')" title="${t('open_plan_hint')}">
                 <td class="rowlab">${s.p}</td>
                 ${s.vals.map((v, i) => {
                     const ratio = v / max;
@@ -1939,8 +2002,8 @@ function renderHomePanels(procs, rows) {
     // สต็อกจะหมดในกี่วัน — สูตร: วันที่เหลือ = คงเหลือ ÷ Planned Used
     // โชว์ทุกตัวที่ ≤14 วัน (วิกฤต+ต่ำ) ทุก process พร้อมกันเลย ไม่จำกัดแค่ 4 อันดับแรกแล้ว (ดูรายละเอียดที่ปุ่ม "ดูทั้งหมดที่สต็อก" แทนไม่พอ ถ้ามีของเร่งด่วนหลายตัวพร้อมกัน)
     const daysSupply = (rows || [])
-        .filter(r => r.plannedUsed > 0 && r.currentStock > 0)
-        .map(r => ({ ...r, days: Math.max(Math.round(r.currentStock / r.plannedUsed * 10) / 10, 0) }))
+        .filter(r => r.daysLeft !== null && r.currentStock > 0)
+        .map(r => ({ ...r, days: Math.max(r.daysLeft, 0) }))
         .filter(r => r.days <= 14)
         .sort((a, b) => a.days - b.days);
     document.getElementById('daysSupplyPanel').innerHTML = `
@@ -1958,8 +2021,47 @@ function renderHomePanels(procs, rows) {
             </div>`; }).join('')}</div>`}`;
 }
 
+// === Shipment ของ BW ดึงจากแผน LC ตาม BOM (sourceMap: LC_<model> -> { srcProc: 'BW', srcModel, ratio }) ===
+// ชิ้นที่ LC ใช้ = เครื่อง LC × Hrs × 3600 ÷ MCT × OA% × อัตราส่วน BOM — BW ที่ไม่มี LC ผูกไว้ยังกรอก Shipment เองเหมือนเดิม
+function lcModelsFeedingBw(bwModel) {
+    return Object.keys(sourceMap)
+        .filter(k => k.startsWith('LC_') && sourceMap[k] && sourceMap[k].srcProc === 'BW' && sourceMap[k].srcModel === bwModel)
+        .map(k => ({ model: k.slice(3), ratio: sourceMap[k].ratio || 1 }))
+        .filter(l => findGroupOfModel('LC', l.model));
+}
+function lcUsageOnDate(links, dateKey) {
+    let pcs = 0;
+    const sources = [];
+    links.forEach(l => {
+        const mc = parseFloat(cellData[`LC_${l.model}_${dateKey}`]);
+        if (isNaN(mc) || mc <= 0) return;
+        const p = getParams(findGroupOfModel('LC', l.model));
+        pcs += calcPcs(mc, p.oa, p.mct, procHrs('LC', dateKey)) * l.ratio;
+        sources.push({ model: l.model, mc });
+    });
+    return { pcs: Math.round(pcs), sources };
+}
+// ใช้ได้อีกกี่วัน: ไล่หักตามแผน LC ทีละวันจากวันที่เลือก (วันที่ LC ไม่ใช้ก็นับเป็นวันเต็ม) — คืน null ถ้า 60 วันข้างหน้าไม่มีแผน LC เลย
+function walkDaysOfSupply(stock, links, startDate) {
+    let left = stock, days = 0, anyUsage = false;
+    for (let i = 0; i < 60; i++) {
+        const d = new Date(startDate); d.setDate(d.getDate() + i);
+        const use = lcUsageOnDate(links, formatDateHeader(d)).pcs;
+        if (use > 0) anyUsage = true;
+        if (use > left) return Math.round((days + left / use) * 10) / 10;
+        left -= use; days++;
+    }
+    return anyUsage ? 60 : null;
+}
+function stockViewDate() {
+    const v = document.getElementById('startDatePicker').value;
+    return v ? new Date(v) : new Date();
+}
+
 // สร้างรายการ stock แบบดิบทุกแถวทุก process (ยังไม่กรอง) — ใช้ร่วมกันทั้ง renderStockPage() และ selectAllVisibleStockModels()
 function buildStockRows() {
+    const viewDate = stockViewDate();
+    const viewKey = formatDateHeader(viewDate);
     const rows = [];
     ['BW', 'LC', 'CW', 'AI'].forEach(proc => {
         processConfig[proc].groups.forEach(g => {
@@ -1969,9 +2071,15 @@ function buildStockRows() {
                 const stockRec = getStockRecord(stockKey);
                 const currentStock = parseFloat(stockRec.value) || 0;
                 const plannedUsedRec = getPlannedUsedRecord(stockKey);
-                const plannedUsed = parseFloat(plannedUsedRec.value) || 0;
+                // BW ที่มี LC ผูก BOM ไว้: Shipment = ชิ้นที่ LC ใช้ในวันที่เลือก (ไม่ใช้ค่าที่เคยกรอกเอง)
+                const links = proc === 'BW' ? lcModelsFeedingBw(m) : [];
+                const autoShipment = links.length > 0;
+                const usage = autoShipment ? lcUsageOnDate(links, viewKey) : null;
+                const plannedUsed = autoShipment ? usage.pcs : (parseFloat(plannedUsedRec.value) || 0);
                 const balance = currentStock - plannedUsed;
-                rows.push({ proc, groupId: g.id, model: m, displayModel: aiDisplayName(proc, m), stockKey, stockRec, plannedUsedRec, currentStock, plannedUsed, balance, status: computeStockStatus(currentStock, plannedUsed, balance) });
+                const daysLeft = autoShipment ? walkDaysOfSupply(currentStock, links, viewDate)
+                    : (plannedUsed > 0 ? Math.round(currentStock / plannedUsed * 10) / 10 : null);
+                rows.push({ proc, groupId: g.id, model: m, displayModel: aiDisplayName(proc, m), stockKey, stockRec, plannedUsedRec, currentStock, plannedUsed, balance, daysLeft, autoShipment, shipmentSources: usage ? usage.sources : [], links, status: computeStockStatus(currentStock, plannedUsed, balance) });
             });
         });
     });
@@ -2083,8 +2191,9 @@ function renderStockPage() {
 
                 // คอลัมน์นี้โชว์ "จำนวนวันที่ใช้ได้" (คงเหลือ ÷ แผนการใช้ต่อวัน) แบบเดียวกับ panel "Days of supply" ที่หน้าแรก แทนป้ายสถานะ ปกติ/ต่ำ/วิกฤต เดิม
                 // (r.status ยังคงคำนวณและใช้งานตามเดิมทุกจุดอื่น — แผงแจ้งเตือน/โดนัท/ตัวกรอง "เฉพาะที่มีปัญหา" — จุดนี้แค่เปลี่ยนวิธีแสดงผลเฉยๆ)
-                const days = r.plannedUsed > 0 ? r.currentStock / r.plannedUsed : null;
-                const statusHtml = days !== null ? `<span class="stock-badge" style="${daysSupplyStyle(days)}">${days.toFixed(1)} ${t('days_unit')}</span>` : '<span style="color:var(--text-muted);">-</span>';
+                const days = r.daysLeft;
+                const daysText = days === null ? '' : (days >= 60 ? '60+' : days.toFixed(1));
+                const statusHtml = days !== null ? `<span class="stock-badge" style="${daysSupplyStyle(days)}">${daysText} ${t('days_unit')}</span>` : '<span style="color:var(--text-muted);">-</span>';
                 const balanceText = (r.currentStock > 0 || r.plannedUsed > 0) ? r.balance.toLocaleString() : '-';
                 const chain = resolveSourceChain(r.proc, r.model);
                 const hasChain = chain.length > 1;
@@ -2120,6 +2229,14 @@ function renderStockPage() {
                 stockTd.appendChild(inp);
 
                 const plannedTd = tr.children[4];
+                if (r.autoShipment) {
+                    // Shipment มาจากแผน LC ตาม BOM — แก้ที่แผน LC หรือ BOM ไม่ใช่ที่ช่องนี้
+                    const srcText = r.shipmentSources.length
+                        ? r.shipmentSources.map(x => `LC ${escapeHtml(x.model)} · ${x.mc} M/C`).join(', ')
+                        : `LC ${r.links.map(l => escapeHtml(l.model)).join(', ')} · ${t('lc_no_plan_today')}`;
+                    plannedTd.innerHTML = `<div class="ship-auto" title="${t('ship_auto_title')}"><span class="ship-num">${r.plannedUsed ? r.plannedUsed.toLocaleString() : '0'}</span><span class="ship-src"><i class="fas fa-link"></i> ${srcText}</span></div>`;
+                    groupTbody.appendChild(tr);
+                } else {
                 const plannedInp = document.createElement('input');
                 plannedInp.type = 'number'; plannedInp.className = 'stock-input'; plannedInp.step = '1'; plannedInp.placeholder = '-';
                 plannedInp.value = r.plannedUsedRec.value || '';
@@ -2135,6 +2252,7 @@ function renderStockPage() {
                 }
                 plannedTd.appendChild(plannedInp);
                 groupTbody.appendChild(tr);
+                }
 
                 if (hasChain) {
                     const chainTr = document.createElement('tr');
@@ -2176,18 +2294,8 @@ function toggleStockChainRow(btn) {
 // หน้า Home — สรุปสต็อกต่อ process (การ์ด+โดนัท), heatmap แผนการผลิต 7 วัน, กราฟ Total M/C วันนี้, กิจกรรมล่าสุด
 // ดูอย่างเดียวทั้งหมด ไม่มีการแก้ไขข้อมูล จึงคำนวณจาก rows ทุก process เสมอ ไม่ขึ้นกับตัวกรองใดๆ (ไม่มีตัวกรองในหน้านี้ด้วย)
 function renderOverview() {
-    const rows = [];
-    ['BW', 'LC', 'CW', 'AI'].forEach(proc => {
-        processConfig[proc].groups.forEach(g => {
-            (modelState[g.id] || []).forEach(m => {
-                const stockKey = `${proc}_${m}`;
-                const currentStock = parseFloat(getStockRecord(stockKey).value) || 0;
-                const plannedUsed = parseFloat(getPlannedUsedRecord(stockKey).value) || 0;
-                const balance = currentStock - plannedUsed;
-                rows.push({ proc, groupId: g.id, displayModel: aiDisplayName(proc, m), currentStock, plannedUsed, balance, status: computeStockStatus(currentStock, plannedUsed, balance) });
-            });
-        });
-    });
+    // ใช้ชุดเดียวกับหน้าสต็อก — Shipment ของ BW ที่ผูก LC ไว้คิดจากแผน LC เหมือนกันทั้ง 2 หน้า
+    const rows = buildStockRows();
 
     const procs = ['BW', 'LC', 'CW', 'AI'];
     // การ์ด "CW (Export)" ไม่ใช่ process จริง (ดู isCwExportModel) — แยกงาน Export ออกมาจากการ์ด CW ปกติ วางไว้ก่อน AI เสมอ ให้ตรงกับลำดับแท็บในหน้าสต็อก
@@ -2206,37 +2314,49 @@ function renderOverview() {
         const stock = procRows.reduce((sum, r) => sum + r.currentStock, 0);
         const plannedUsedTracked = procRows.filter(r => r.plannedUsed > 0);
         const plannedUsedSum = plannedUsedTracked.reduce((sum, r) => sum + r.plannedUsed, 0);
-        const optimalPct = tracked.length > 0 ? Math.round((counts.normal / tracked.length) * 100) : 0;
-        const accent = counts.critical > 0 ? 'var(--danger)' : counts.low > 0 ? 'var(--weekend-head-text)' : tracked.length === 0 ? 'var(--border-strong)' : 'var(--success)';
         const label = counts.critical > 0 ? `${counts.critical} ${t('critical_word')}` : counts.low > 0 ? `${counts.low} ${t('low_stock_word')}` : tracked.length === 0 ? t('no_data') : t('no_issues');
-        const pillStyle = counts.critical > 0 ? 'background:var(--danger-soft);color:var(--danger)'
-            : counts.low > 0 ? 'background:var(--warning-soft);color:var(--weekend-head-text)'
-            : tracked.length === 0 ? 'background:var(--header-bg);color:var(--text-muted)'
-            : 'background:var(--success-soft);color:var(--success)';
+        const pillCls = counts.critical > 0 ? 's-bad' : counts.low > 0 ? 's-warn' : tracked.length === 0 ? 's-none' : 's-ok';
+        const name = proc === 'CW_EXPORT' ? 'CW (Export)' : proc;
+        const target = proc === 'CW_EXPORT' ? 'CW' : proc;
+        // การ์ดที่ยังไม่มีสต็อกให้ดู โชว์แผน 7 วันข้างหน้าแทน (จำนวนเครื่องรวม) จะได้ไม่ใช่การ์ดว่างๆ
+        const startDate = new Date(document.getElementById('startDatePicker').value);
+        const keys7 = [];
+        for (let i = 0; i < 7; i++) { const d = new Date(startDate); d.setDate(d.getDate() + i); keys7.push(formatDateHeader(d)); }
+        const plan7 = procRows.reduce((sum, r) => sum + keys7.reduce((s2, dk) => s2 + (parseFloat(cellData[`${r.proc}_${r.model}_${dk}`]) || 0), 0), 0);
+        const plan7Text = `${t('plan_7d_prefix')}: ${(Math.round(plan7 * 10) / 10).toLocaleString()} M/C`;
+        if (tracked.length === 0 && stock === 0) {
+            return `
+        <div class="proc-card empty" onclick="switchProcess('${target}')" title="${t('open_plan_hint')}">
+            <div class="pc-head"><span class="pname">${name}</span><span class="status-pill ${pillCls}">${label}</span></div>
+            <div class="pc-empty">${t('stock_not_entered')}</div>
+            <div class="pc-foot"><span>${plan7Text}</span></div>
+        </div>`;
+        }
+        const total = Math.max(tracked.length, 1);
+        const seg = (k) => counts[k] ? `<i style="width:${counts[k] / total * 100}%;background:${STOCK_DONUT_COLORS[k]}"></i>` : '';
+        const daysLeft = plannedUsedSum > 0 ? stock / plannedUsedSum : null;
         return `
-        <div class="proc-card" style="border-left-color:${accent}">
-            <div class="info">
-                <div class="pname">${proc === 'CW_EXPORT' ? 'CW (Export)' : procLabel(proc)}</div>
-                <div class="pstock">${stock.toLocaleString()}</div>
-                <div class="punit">${t('stock_remaining_unit')} · ${tracked.length} ${t('items_tracked')}</div>
-                <span class="status-pill" style="${pillStyle}">${label}</span>
-                <div class="pused${plannedUsedTracked.length === 0 ? ' pused-empty' : ''}">${plannedUsedTracked.length === 0 ? t('no_planned_data') : `${t('planned_used_prefix')} ${plannedUsedSum.toLocaleString()} ${t('pcs_unit')}`}</div>
-            </div>
-            <div class="mini-donut">
-                ${stockDonutSVG(counts)}
-                <div class="mid"><b>${optimalPct}%</b><span>${STOCK_STATUS_LABEL.normal}</span></div>
+        <div class="proc-card" onclick="switchProcess('Stock')" title="${t('view_all_stock')}">
+            <div class="pc-head"><span class="pname">${name}</span><span class="status-pill ${pillCls}">${label}</span></div>
+            <div class="pstock">${stock.toLocaleString()}<small>${t('stock_remaining_unit')}</small></div>
+            <div class="pc-bar">${seg('normal')}${seg('low')}${seg('critical')}${seg('excess')}</div>
+            <div class="pc-foot">
+                <span>${plannedUsedTracked.length === 0 ? t('no_planned_data') : `${t('planned_used_prefix')} ${plannedUsedSum.toLocaleString()}`}</span>
+                ${daysLeft !== null ? `<span>${daysLeft.toFixed(1)} ${t('days_unit')}</span>` : `<span>${plan7Text}</span>`}
             </div>
         </div>`;
     }).join('');
 
-    document.getElementById('overviewLegendRow').innerHTML = `
-        <span style="color:var(--text-muted);">${t('donut_legend_label')}</span>
-        <span><i style="background:${STOCK_DONUT_COLORS.normal}"></i>${STOCK_STATUS_LABEL.normal}</span>
-        <span><i style="background:${STOCK_DONUT_COLORS.low}"></i>${STOCK_STATUS_LABEL.low}</span>
-        <span><i style="background:${STOCK_DONUT_COLORS.critical}"></i>${STOCK_STATUS_LABEL.critical}</span>
-        <span><i style="background:${STOCK_DONUT_COLORS.excess}"></i>${STOCK_STATUS_LABEL.excess}</span>`;
-
     renderHomePanels(procs, rows);
+}
+
+// ตัวเลขแดงข้างเมนู "สต็อก" = จำนวน Model ที่สต็อกต่ำ/วิกฤตอยู่ตอนนี้ (ทุก process) เห็นได้จากทุกหน้าโดยไม่ต้องเปิดหน้าสต็อก
+function updateNavBadges() {
+    const badge = document.getElementById('navStockBadge');
+    if (!badge) return;
+    const n = buildStockRows().filter(r => r.status === 'critical' || r.status === 'low').length;
+    badge.textContent = n;
+    badge.style.display = n > 0 ? '' : 'none';
 }
 
 // === Admin & Table Generation Functions ===
@@ -2296,7 +2416,7 @@ function updateAdminUI() {
     const editGroupDivider = document.getElementById('editGroupDivider');
     const shortcutsHintBtn = document.getElementById('shortcutsHintBtn');
     if (isAdmin) {
-        btn.innerHTML = `<i class="fas fa-unlock"></i> <span class="login-label">${t('admin_mode_label')}</span>`; btn.classList.add('logged-in');
+        btn.innerHTML = userPillHtml(currentUser ? currentUser.username : 'Admin', t('admin_mode_label')); btn.classList.add('logged-in');
         revInput.removeAttribute('readonly'); revInput.style.background = 'var(--card-bg)';
         saveBtn.style.display = 'flex'; // โชว์ทุกหน้ารวมทั้ง Overview ด้วย (ไว้เซฟประกาศ/สต็อกที่แก้จากหน้านี้ได้)
         if (adminSettingsSection) adminSettingsSection.style.display = 'block';
@@ -2306,7 +2426,7 @@ function updateAdminUI() {
         if (shortcutsHintBtn) shortcutsHintBtn.style.display = 'flex';
     } else if (currentUser) {
         // login แบบจำกัดสิทธิ์ (แก้ไขได้เฉพาะ process ที่ได้รับมอบหมาย) — แก้ไขโครงสร้าง/Rev/Announcements ไม่ได้
-        btn.innerHTML = `<i class="fas fa-unlock"></i> <span class="login-label">${currentUser.username} (${currentUser.processes.join(', ')})</span>`; btn.classList.add('logged-in');
+        btn.innerHTML = userPillHtml(currentUser.username, currentUser.processes.join(', ')); btn.classList.add('logged-in');
         revInput.setAttribute('readonly', 'true'); revInput.style.background = 'var(--header-bg)';
         saveBtn.style.display = 'flex';
         if (adminSettingsSection) adminSettingsSection.style.display = 'none';
@@ -2324,9 +2444,17 @@ function updateAdminUI() {
         if (editGroupDivider) editGroupDivider.style.display = 'none';
         if (shortcutsHintBtn) shortcutsHintBtn.style.display = 'none';
     }
+    const loginHint = document.getElementById('sidebarLoginHint');
+    if (loginHint) loginHint.style.display = currentUser ? 'none' : 'flex';
     updateUndoRedoBtnUI();
     updateSaveButtonUI();
     if (currentProcess === 'Overview') renderAnnouncements();
+}
+
+// ปุ่มผู้ใช้มุมขวาบน: วงกลมอักษรย่อ + ชื่อ + บทบาท/process ที่แก้ได้ (กดเพื่อออกจากระบบเหมือนเดิม)
+function userPillHtml(name, sub) {
+    const initials = String(name).trim().slice(0, 2).toUpperCase();
+    return `<span class="user-avatar">${escapeHtml(initials)}</span><span class="login-label">${escapeHtml(name)}<small>${escapeHtml(sub)}</small></span>`;
 }
 
 // === จัดการผู้ใช้งาน (เฉพาะ Admin) ===
@@ -2500,6 +2628,7 @@ function setViewDays(days) {
     document.querySelectorAll('#viewToggleGroup .toggle-btn').forEach(b => b.classList.remove('active'));
     const idMap = { 1: 'btn1Day', 7: 'btn7Days', 30: 'btn30Days' };
     document.getElementById(idMap[days]).classList.add('active');
+    updateDateRangeLabel();
     rerenderCurrentView();
 }
 
@@ -2562,27 +2691,34 @@ function generateTable() {
 
     // คอลัมน์วันที่ใช้ min-width หน่วย px คงที่เสมอ (ไม่ใช่ % ของ viewDays) เพื่อให้เมื่อดูแบบ 1 เดือน (30 วัน)
     // ตารางขยายกว้างเกินจอแล้วเลื่อนซ้าย-ขวาได้ (.table-responsive มี overflow-x: auto อยู่แล้ว) แทนที่จะบีบคอลัมน์จนอ่านไม่ออก
-    let groupWidth = "160px"; let modelWidth = "170px"; let coverWidth = config.hasCover ? "90px" : "0px"; let dateMinWidth = "68px";
+    let modelWidth = "200px"; let coverWidth = config.hasCover ? "90px" : "0px"; let dateMinWidth = "68px";
     const todayKey = formatDateHeader(new Date());
+    const labelCols = config.hasCover ? 2 : 1;
+    const viewKeys = [];
+    for (let i = 0; i < viewDays; i++) { const d = new Date(startDate); d.setDate(d.getDate() + i); viewKeys.push(formatDateHeader(d)); }
 
     let trHead = document.createElement('tr');
-    let headerStr = `<th style="background-color: var(--header-bg); border-right: none; min-width:${groupWidth};"></th><th style="background-color: var(--header-bg); min-width:${modelWidth};">Stamp/m/c</th>`;
-    if (config.hasCover) headerStr += `<th style="background-color: var(--header-bg); min-width:${coverWidth};">Cover</th>`;
+    let headerStr = `<th class="th-model" style="min-width:${modelWidth};">Model</th>`;
+    if (config.hasCover) headerStr += `<th style="min-width:${coverWidth};">Cover</th>`;
     for (let i = 0; i < viewDays; i++) {
         let d = new Date(startDate); d.setDate(d.getDate() + i);
-        let dateKey = formatDateHeader(d);
+        let dateKey = viewKeys[i];
         let isWeekend = (d.getDay() === 0 || d.getDay() === 6); let isToday = dateKey === todayKey;
         let cls = [isWeekend ? 'weekend-header' : '', isToday ? 'today-header' : ''].filter(Boolean).join(' ');
-        headerStr += `<th class="${cls}" style="min-width:${dateMinWidth};">${dateKey}${isToday ? '<span class="today-badge">วันนี้</span>' : ''}</th>`;
+        headerStr += `<th class="${cls}" style="min-width:${dateMinWidth};">${dateHeaderHtml(d, isToday)}</th>`;
     }
     trHead.innerHTML = headerStr; tHead.appendChild(trHead);
+    const groupHasData = {};
+    config.groups.forEach(g => { groupHasData[g.id] = (modelState[g.id] || []).some(m => viewKeys.some(dk => parseFloat(cellData[`${currentProcess}_${m}_${dk}`]) > 0)); });
+    const anyGroupHasData = Object.values(groupHasData).some(Boolean);
+    planGroupCollapsedState = {};
 
     // Hrs/Day ของทั้ง process รวมเป็นแถวเดียว (ไม่ต้องกรอกซ้ำทีละกลุ่มเหมือนเดิม) — ใช้ค่าเดียวกันคำนวณ Pcs ทุกกลุ่มใน process นี้
     if (isAdmin) {
         const hrsTbody = document.createElement('tbody'); hrsTbody.id = 'tbody-hrs-consolidated';
         const trHrs = document.createElement('tr'); trHrs.className = 'hrs-row';
-        const tdHrsLabel = document.createElement('td'); tdHrsLabel.className = 'col-group';
-        tdHrsLabel.colSpan = config.hasCover ? 3 : 2;
+        const tdHrsLabel = document.createElement('td'); tdHrsLabel.className = 'col-model hrs-label';
+        tdHrsLabel.colSpan = labelCols;
         tdHrsLabel.style.borderTop = "1px solid var(--border-color)";
         tdHrsLabel.innerHTML = '<strong><i class="fas fa-clock"></i> Hrs/Day (ทั้ง process)</strong>';
         trHrs.appendChild(tdHrsLabel);
@@ -2612,29 +2748,41 @@ function generateTable() {
         let models = modelState[groupId] || []; let rowCount = models.length;
         let p = getParams(groupId);
 
-        let groupHtmlStr = groupLabels[groupId] || groupId;
-        if (isAdmin) {
-            groupHtmlStr += `<br><button class="btn-action btn-edit-type no-print" onclick="editGroup('${groupId}')"><i class="fas fa-edit"></i> แก้ไขประเภท</button>`;
-            groupHtmlStr += `<div class="param-box no-print">
-                                <label>OA%:</label> <input type="number" step="1" value="${p.oa}" onchange="updateParam('${groupId}', 'oa', this.value)"><br>
-                                <label>MCT:</label> <input type="number" step="0.1" value="${p.mct}" onchange="updateParam('${groupId}', 'mct', this.value)">
-                             </div>`;
-        }
+        // แถบหัวกลุ่ม (แทนคอลัมน์กลุ่มแบบ rowspan เดิม) — กดเพื่อพับ/กาง; กลุ่มที่ว่างทั้งช่วงพับไว้ให้เองถ้ากลุ่มอื่นมีแผนอยู่
+        const collapsed = planGroupOverrides.hasOwnProperty(groupId) ? planGroupOverrides[groupId] : (!groupHasData[groupId] && anyGroupHasData);
+        planGroupCollapsedState[groupId] = collapsed;
+        const bandTr = document.createElement('tr');
+        bandTr.className = 'grp-band';
+        const bandTd = document.createElement('td');
+        bandTd.colSpan = labelCols + viewDays;
+        const groupName = (groupLabels[groupId] || groupId).replace(/<br>/gi, ' ');
+        const emptyNote = collapsed && !groupHasData[groupId] ? ` · ${t('group_empty_collapsed')}` : '';
+        bandTd.innerHTML = `<div class="grp-band-inner">
+            <i class="fas fa-chevron-${collapsed ? 'right' : 'down'} grp-chevron no-print"></i>
+            <span class="grp-name">${groupName}</span>
+            <span class="grp-meta">${rowCount} Model${emptyNote}</span>
+            ${isAdmin ? `<span class="grp-admin no-print">
+                <button class="btn-edit-type" onclick="editGroup('${groupId}')"><i class="fas fa-pen"></i> แก้ไขประเภท</button>
+                <label>OA% <input type="number" step="1" value="${p.oa}" onchange="updateParam('${groupId}', 'oa', this.value)"></label>
+                <label>MCT <input type="number" step="0.1" value="${p.mct}" onchange="updateParam('${groupId}', 'mct', this.value)"></label>
+            </span>` : ''}
+        </div>`;
+        bandTr.appendChild(bandTd);
+        bandTr.onclick = (e) => {
+            if (e.target.closest('input, button, label')) return;
+            planGroupOverrides[groupId] = !collapsed;
+            generateTable();
+        };
+        groupTbody.appendChild(bandTr);
 
         // --- 1. Generate Models ---
         models.forEach((modelName, index) => {
             let tr = document.createElement('tr');
             const isUrgent = !!urgentModels[urgentKey(currentProcess, modelName)];
-            tr.className = (index % 2 === 0 ? 'row-even' : 'row-odd') + (isUrgent ? ' row-urgent' : '');
+            tr.className = (index % 2 === 0 ? 'row-even' : 'row-odd') + (isUrgent ? ' row-urgent' : '') + (collapsed ? ' grp-collapsed-row' : '');
             // AI: ชื่อเก็บจริงเป็น "<groupId>::<ชื่อที่โชว์>" (กันชื่อซ้ำข้ามกลุ่มชนกัน) — ใช้ displayName เฉพาะจุดที่โชว์ให้คนดู ส่วน modelName (ดิบ) ยังใช้ทำ key ข้อมูลทุกที่เหมือนเดิม
             const displayName = aiDisplayName(currentProcess, modelName);
             tr.dataset.modelName = displayName; // ชื่อเต็ม (รวม variant) ไว้ใช้ค้นหา แม้ตอนแสดงผลจะแยก base/variant ออกเป็นคนละ span
-            if (index === 0) {
-                let tdGroup = document.createElement('td'); tdGroup.className = 'col-group';
-                tdGroup.rowSpan = rowCount + (isAdmin ? 1 : 0);
-                tdGroup.style.borderTop = "1px solid var(--border-color)";
-                tdGroup.innerHTML = groupHtmlStr; tr.appendChild(tdGroup);
-            }
 
             let tdModel = document.createElement('td'); let isBlue = blueModels.includes(modelName);
             if (modelName === 'Q4 (DSS2)') tdModel.style.backgroundColor = '#f1f2f6';
@@ -2744,13 +2892,8 @@ function generateTable() {
 
         // --- 2. Generate Add Model Button (Admin Only) ---
         if (isAdmin) {
-            let trAdd = document.createElement('tr'); trAdd.className = 'no-print';
-            if (rowCount === 0) {
-                let tdGroup = document.createElement('td'); tdGroup.className = 'col-group';
-                tdGroup.style.borderTop = "1px solid var(--border-color)";
-                tdGroup.innerHTML = groupHtmlStr; trAdd.appendChild(tdGroup);
-            }
-            let tdAdd = document.createElement('td'); tdAdd.colSpan = config.hasCover ? 2 : 1; tdAdd.style.padding = '0'; if (rowCount === 0) tdAdd.style.borderTop = "1px solid var(--border-color)";
+            let trAdd = document.createElement('tr'); trAdd.className = 'no-print add-model-row' + (collapsed ? ' grp-collapsed-row' : '');
+            let tdAdd = document.createElement('td'); tdAdd.colSpan = labelCols; tdAdd.className = 'col-model'; tdAdd.style.padding = '0';
             tdAdd.innerHTML = `<button class="btn-action btn-add" onclick="addModel('${groupId}')"><i class="fas fa-plus"></i> เพิ่ม Model</button>`; trAdd.appendChild(tdAdd);
 
             for (let i = 0; i < viewDays; i++) {
@@ -2765,11 +2908,11 @@ function generateTable() {
         if (groupConfig.totals) {
             groupConfig.totals.forEach(tot => {
                 let trTot = document.createElement('tr'); trTot.className = `total-row row-total ${tot.isDg1 ? 'row-total-dg1' : ''} ${tot.isGrand ? 'row-grand-total' : ''}`;
-                let labelTd = document.createElement('td'); labelTd.colSpan = config.hasCover ? 3 : 2;
+                let labelTd = document.createElement('td'); labelTd.colSpan = labelCols;
 
                 let labelText = tot.isGroupTotal ? (t('total_prefix') + " " + (groupLabels[groupId] || groupId).replace(/<br>/gi, ' ')) : tot.label[appLang];
                 labelTd.innerText = labelText;
-                labelTd.style.textAlign = config.hasCover ? 'left' : 'center'; if (config.hasCover) labelTd.style.paddingLeft = '15px'; trTot.appendChild(labelTd);
+                labelTd.className = 'col-model tot-label'; trTot.appendChild(labelTd);
 
                 for (let i = 0; i < viewDays; i++) { let d = new Date(startDate); d.setDate(d.getDate() + i); let valTd = document.createElement('td'); valTd.className = dayClasses(d, 'tot-cell'); valTd.dataset.sumGroups = tot.sum.join(','); valTd.innerText = '-'; trTot.appendChild(valTd); }
                 groupTbody.appendChild(trTot);
@@ -2778,7 +2921,7 @@ function generateTable() {
         mainTable.appendChild(groupTbody);
     });
     calcTotals();
-    applyStickyColumnOffsets();
+    updateCollapseAllLabel();
     updateTodayStats();
     bindVerticalStickyScroll();
     syncVerticalSticky();
@@ -2805,16 +2948,27 @@ function bindVerticalStickyScroll() {
     container.addEventListener('scroll', syncVerticalSticky);
 }
 
-// วัดความกว้างจริงของคอลัมน์กลุ่ม แล้วเลื่อนคอลัมน์ Model ให้ชิดขวาคอลัมน์กลุ่มพอดีเวลา sticky ซ้าย
-// (กันกรณีข้อความชื่อกลุ่มยาว/มีปุ่ม Edit Type ตอน Admin ทำให้คอลัมน์กว้างเกิน 160px ที่ตั้งไว้)
-function applyStickyColumnOffsets() {
-    // เจาะจงไม่เอา label cell ของแถว Hrs/Day รวม (colSpan คร่อมหลายคอลัมน์ ความกว้างจะไม่ตรงกับคอลัมน์กลุ่มจริง)
-    const groupCell = document.querySelector('#mainTable tbody:not(#tbody-hrs-consolidated) .col-group');
-    if (!groupCell) return;
-    const w = groupCell.offsetWidth;
-    document.querySelectorAll('.col-model').forEach(el => el.style.left = w + 'px');
-    const stampTh = document.querySelector('#tableHead th:nth-child(2)');
-    if (stampTh) stampTh.style.left = w + 'px';
+// พับ/กางกลุ่มในตารางแผน — จำเฉพาะในหน้าที่เปิดอยู่ (ไม่ข้ามการรีเฟรช) ค่าเริ่มต้นดูที่ generateTable()
+let planGroupOverrides = {};
+let planGroupCollapsedState = {};
+function updateCollapseAllLabel() {
+    const label = document.getElementById('collapseAllLabel');
+    if (!label) return;
+    const anyExpanded = Object.values(planGroupCollapsedState).some(c => !c);
+    label.textContent = t(anyExpanded ? 'collapse_all' : 'expand_all');
+}
+function toggleCollapseAllGroups() {
+    const collapse = Object.values(planGroupCollapsedState).some(c => !c);
+    Object.keys(planGroupCollapsedState).forEach(g => { planGroupOverrides[g] = collapse; });
+    generateTable();
+}
+
+// หัวคอลัมน์วันที่: "5 ต.ค." + วันในสัปดาห์ตัวเล็ก (วันนี้ต่อท้ายด้วย "· วันนี้")
+function dateHeaderHtml(d, isToday) {
+    const loc = appLang === 'en' ? 'en-GB' : 'th-TH-u-ca-gregory';
+    const main = d.toLocaleDateString(loc, { day: 'numeric', month: 'short' });
+    const wd = d.toLocaleDateString(loc, { weekday: 'short' });
+    return `${main}<small class="th-sub">${wd}${isToday ? ' · ' + t('today_note') : ''}</small>`;
 }
 
 function calcTotals() {
@@ -2830,6 +2984,8 @@ function calcTotals() {
             let dayHrs = parseFloat(hrsData[hrsKey]); if (isNaN(dayHrs)) dayHrs = 18;
 
             let val = parseFloat(inp.value);
+            // ระดับสีของช่อง: ยิ่งใช้เครื่องมากยิ่งเข้ม (ดู input.table-input[data-lvl] ใน CSS)
+            inp.dataset.lvl = !isNaN(val) && val > 0 ? (val <= 1 ? '1' : val <= 3 ? '2' : '3') : '';
             let span = inp.nextElementSibling;
             if (span && span.classList.contains('cell-pcs-text')) {
                 if (!isNaN(val) && val > 0 && dayHrs > 0) span.innerText = calcPcs(val, p.oa, p.mct, dayHrs).toLocaleString();
@@ -3197,24 +3353,17 @@ function applyPrintOrientationCss(orientation) {
 // hideClass = ชื่อ class ที่จะเติมให้แถวที่ต้องซ่อน, hideEmptyTotals = ให้ซ่อนแถว Total ที่ไม่มีค่าด้วยหรือไม่
 function hideEmptyModelRows(hideClass, hideEmptyTotals) {
     document.querySelectorAll('#mainTable tbody').forEach(tbody => {
-        let modelVisibleCount = 0; let visibleCount = 0; let firstVisibleRow = null; let groupCell = tbody.querySelector('.col-group');
-        let rows = tbody.querySelectorAll('tr:not(.no-print)');
-
-        rows.forEach(row => {
-            if (row.classList.contains('total-row') || row.classList.contains('hrs-row')) return;
-            // ต้องเจาะจงแค่ input.table-input (ช่องกรอกจำนวนเครื่องต่อวัน) เท่านั้น ไม่งั้นตอน Admin login
-            // อยู่ ช่อง OA%/MCT ใน param-box (เป็น input type=number เหมือนกัน) จะถูกนับเป็น "มีข้อมูล" ไปด้วย
+        let modelVisibleCount = 0;
+        tbody.querySelectorAll('tr:not(.no-print)').forEach(row => {
+            if (row.classList.contains('total-row') || row.classList.contains('hrs-row') || row.classList.contains('grp-band')) return;
+            // ต้องเจาะจงแค่ input.table-input (ช่องกรอกจำนวนเครื่องต่อวัน) — ไม่งั้นช่อง OA%/MCT ในแถบหัวกลุ่มจะถูกนับเป็น "มีข้อมูล" ไปด้วย
             let inputs = row.querySelectorAll('input.table-input[type="number"]'); let hasData = Array.from(inputs).some(inp => inp.value.trim() !== '' && parseFloat(inp.value) !== 0);
             if (!hasData && inputs.length > 0) row.classList.add(hideClass);
-            else { modelVisibleCount++; visibleCount++; if (!firstVisibleRow) firstVisibleRow = row; }
+            else modelVisibleCount++;
         });
-
-        // หมายเหตุ: ถ้ากลุ่มนี้ไม่มี Model ไหนมีข้อมูลเลย (modelVisibleCount===0) จะไม่ซ่อนทั้ง tbody
-        // เพราะแถว Total/Grand Total อาจยังมีข้อมูลจากกลุ่มอื่นรวมอยู่ — ช่องชื่อกลุ่มจะถูกซ่อนไปเองเพราะ
-        // อยู่ในแถว Model แถวแรกซึ่งถูกซ่อนอยู่แล้วเมื่อไม่มีข้อมูล
-        if (modelVisibleCount > 0) {
-            if (groupCell) { groupCell.setAttribute('data-original-rowspan', groupCell.rowSpan); groupCell.rowSpan = visibleCount; if (firstVisibleRow && firstVisibleRow !== groupCell.parentElement) { firstVisibleRow.insertBefore(groupCell, firstVisibleRow.firstChild); groupCell.setAttribute('data-moved', 'true'); } }
-        }
+        // กลุ่มที่ไม่เหลือ Model ให้เห็นเลย ซ่อนแถบหัวกลุ่มด้วย (แถว Total ยังอยู่ เพราะอาจรวมข้อมูลจากกลุ่มอื่น)
+        const band = tbody.querySelector('tr.grp-band');
+        if (band && modelVisibleCount === 0) band.classList.add(hideClass);
     });
 
     if (hideEmptyTotals) {
@@ -3234,10 +3383,6 @@ function prepareContentForPrint() {
 
 function restoreContentAfterPrint() {
     document.querySelectorAll('.hide-on-print').forEach(el => el.classList.remove('hide-on-print'));
-    document.querySelectorAll('#mainTable tbody').forEach(tbody => {
-        let groupCell = tbody.querySelector('.col-group');
-        if (groupCell) { if (groupCell.hasAttribute('data-original-rowspan')) groupCell.rowSpan = groupCell.getAttribute('data-original-rowspan'); if (groupCell.hasAttribute('data-moved')) { let firstRow = tbody.querySelector('tr'); firstRow.insertBefore(groupCell, firstRow.firstChild); groupCell.removeAttribute('data-moved'); } }
-    });
     const el = document.querySelector('.dashboard-container');
     if (el) el.style.zoom = '';
 }
@@ -3294,8 +3439,10 @@ function filterModels(query) {
         renderStockPage(); // การกรอง/ไฮไลต์ตามคำค้นหาทำอยู่ในนี้แล้ว (กางทุกกลุ่มให้อัตโนมัติตอนกำลังค้นหา)
         return;
     }
+    // กำลังค้นหาอยู่ให้กางทุกกลุ่มชั่วคราว ไม่งั้น Model ที่ค้นเจอในกลุ่มที่พับไว้จะไม่โผล่
+    document.getElementById('mainTable').classList.toggle('searching', !!q);
     document.querySelectorAll('#mainTable tbody tr').forEach(row => {
-        if (row.classList.contains('total-row') || row.classList.contains('hrs-row') || row.classList.contains('no-print')) return;
+        if (row.classList.contains('total-row') || row.classList.contains('hrs-row') || row.classList.contains('no-print') || row.classList.contains('grp-band')) return;
         const name = row.dataset.modelName || '';
         if (!name) return;
         row.style.display = (!q || name.toLowerCase().includes(q)) ? '' : 'none';
@@ -3668,12 +3815,6 @@ function mountControlsIntoSidebar() {
     const tools = document.getElementById('sidebarTools');
     const controls = document.querySelector('.controls-area');
     if (tools && controls) tools.appendChild(controls);
-    // กระดิ่งแจ้งเตือน + เมนู "เพิ่มเติม" ทุกคนใช้ได้เหมือนกัน (ไม่ใช่เครื่องมือแก้ไขที่ขึ้นกับหน้า) จึงยกไปไว้แถวชื่อแอปด้านบนคู่กับภาษา/บัญชี แยกจากกลุ่มเครื่องมือที่ขึ้นกับหน้าปัจจุบัน
-    const brandActions = document.getElementById('brandActions');
-    const bell = document.querySelector('.controls-area .bell-wrap');
-    if (brandActions && bell) brandActions.appendChild(bell);
-    const moreWrap = document.querySelector('.controls-area .more-menu-wrap');
-    if (brandActions && moreWrap) brandActions.appendChild(moreWrap);
     // กดเลือกอะไรก็ตามในเมนู "เพิ่มเติม" (Export/Import/PDF/ลบข้อมูลช่วงวันที่/เคล็ดลับ) ให้เมนูปิดตัวเองไปด้วยเลย
     // ไม่งั้นถ้าการกระทำนั้นเปลี่ยนหน้าจอไปเยอะ (เช่นเคยมีปุ่มโหมดจอทีวีอยู่ตรงนี้มาก่อน) เมนู+ฉากหลังมืดจะค้างอยู่ทับหน้าใหม่โดยไม่มีอะไรไปปิดให้
     document.querySelectorAll('#moreMenuPanel .more-menu-item').forEach(btn => {

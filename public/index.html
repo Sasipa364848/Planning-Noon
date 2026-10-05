@@ -11,43 +11,115 @@
 
 <div class="app-shell">
 <aside class="app-sidebar no-print" id="appSidebar">
-    <div class="sidebar-brand sidebar-brand-stack">
-        <div class="brand-row-top">
-            <span class="brand-logo-row" title="Production Plan">
-                <img src="img/dsst-logo.png" alt="DSST" class="brand-logo-img">
-                <span class="brand-app-name">Production Plan</span>
-            </span>
-            <button class="sidebar-close" id="sidebarClose" onclick="toggleSidebar()" title="ปิดเมนู"><i class="fas fa-xmark"></i></button>
-        </div>
-        <span class="brand-actions" id="brandActions">
-            <span class="lang-row-wrap">
-                <button class="kiosk-toggle-btn no-print" id="kioskBtn" onclick="toggleKioskMode()" data-i18n-title="kiosk_mode" title="โหมดจอรวม/ทีวี"><i class="fas fa-tv"></i></button>
-                <div class="toggle-btn-group lang-toggle-compact no-print" id="langToggleGroup">
-                    <button class="toggle-btn" id="langBtnTh" onclick="setLang('th')">TH</button>
-                    <button class="toggle-btn" id="langBtnEn" onclick="setLang('en')">EN</button>
-                </div>
-                <button class="dark-mode-toggle no-print" id="darkModeBtn" onclick="toggleDarkMode()" data-i18n-title="dark_mode_title" title="สลับโหมดมืด"><i class="fas fa-moon"></i></button>
-            </span>
-            <div class="admin-mode-wrap no-print" style="position:relative; display:inline-flex;">
-                <button class="btn-login" id="adminBtn" onclick="toggleAdmin()"><i class="fas fa-lock"></i> <span class="login-label" data-i18n="login_btn">เข้าสู่ระบบ</span></button>
-            </div>
+    <div class="sidebar-brand">
+        <span class="brand-logo-row" title="Production Plan">
+            <img src="img/dsst-logo.png" alt="DSST" class="brand-logo-img">
+            <span class="brand-app-name">Production Plan</span>
         </span>
+        <button class="sidebar-close" id="sidebarClose" onclick="toggleSidebar()" title="ปิดเมนู"><i class="fas fa-xmark"></i></button>
     </div>
     <div class="sidebar-scroll">
-        <div class="tabs-container no-print">
+        <nav class="tabs-container no-print">
             <button class="tab-btn active" id="tabBtn-Overview" onclick="switchProcess('Overview')"><i class="fas fa-house"></i> <span data-i18n="nav_home">หน้าแรก</span></button>
-            <button class="tab-btn" id="tabBtn-Stock" onclick="switchProcess('Stock')"><i class="fas fa-boxes-stacked"></i> <span data-i18n="nav_stock">สต็อก</span></button>
-            <button class="tab-btn" id="tabBtn-BW" onclick="switchProcess('BW')"><i class="fas fa-industry"></i> <span id="navProcLabel-BW">กระบวนการ BW</span></button>
-            <button class="tab-btn" id="tabBtn-LC" onclick="switchProcess('LC')"><i class="fas fa-industry"></i> <span id="navProcLabel-LC">กระบวนการ LC</span></button>
-            <button class="tab-btn" id="tabBtn-CW" onclick="switchProcess('CW')"><i class="fas fa-industry"></i> <span id="navProcLabel-CW">กระบวนการ CW</span></button>
-            <button class="tab-btn" id="tabBtn-AI" onclick="switchProcess('AI')"><i class="fas fa-industry"></i> <span id="navProcLabel-AI">กระบวนการ AI</span></button>
-        </div>
+            <button class="tab-btn" id="tabBtn-Stock" onclick="switchProcess('Stock')"><i class="fas fa-boxes-stacked"></i> <span data-i18n="nav_stock">สต็อก</span><span class="nav-badge" id="navStockBadge" style="display:none;"></span></button>
+            <div class="nav-sec-label" data-i18n="nav_plans_label">แผนการผลิต</div>
+            <button class="tab-btn" id="tabBtn-BW" onclick="switchProcess('BW')"><span class="proc-dot proc-dot-BW"></span> <span id="navProcLabel-BW">กระบวนการ BW</span></button>
+            <button class="tab-btn" id="tabBtn-LC" onclick="switchProcess('LC')"><span class="proc-dot proc-dot-LC"></span> <span id="navProcLabel-LC">กระบวนการ LC</span></button>
+            <button class="tab-btn" id="tabBtn-CW" onclick="switchProcess('CW')"><span class="proc-dot proc-dot-CW"></span> <span id="navProcLabel-CW">กระบวนการ CW</span></button>
+            <button class="tab-btn" id="tabBtn-AI" onclick="switchProcess('AI')"><span class="proc-dot proc-dot-AI"></span> <span id="navProcLabel-AI">กระบวนการ AI</span></button>
+        </nav>
         <div class="sidebar-tools" id="sidebarTools"></div>
+        <button class="sidebar-login-hint no-print" id="sidebarLoginHint" onclick="toggleAdmin()" style="display:none;"><i class="fas fa-right-to-bracket"></i> <span data-i18n="login_to_edit">เข้าสู่ระบบเพื่อแก้ไข</span></button>
+    </div>
+    <div class="sidebar-foot no-print">
+        <div class="toggle-btn-group lang-toggle-compact" id="langToggleGroup">
+            <button class="toggle-btn" id="langBtnTh" onclick="setLang('th')">TH</button>
+            <button class="toggle-btn" id="langBtnEn" onclick="setLang('en')">EN</button>
+        </div>
+        <span class="sidebar-foot-icons">
+            <button class="dark-mode-toggle" id="darkModeBtn" onclick="toggleDarkMode()" data-i18n-title="dark_mode_title" title="สลับโหมดมืด"><i class="fas fa-moon"></i></button>
+            <button class="kiosk-toggle-btn" id="kioskBtn" onclick="toggleKioskMode()" data-i18n-title="kiosk_mode" title="โหมดจอรวม/ทีวี"><i class="fas fa-tv"></i></button>
+        </span>
     </div>
 </aside>
 
 <div class="app-main">
-<button class="sidebar-toggle no-print" id="sidebarToggle" onclick="toggleSidebar()" title="เมนู"><i class="fas fa-bars"></i></button>
+<header class="topbar no-print" id="topbar">
+    <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" title="เมนู"><i class="fas fa-bars"></i></button>
+    <div class="topbar-title">
+        <h1 id="pageTitle"><i class="fas fa-chart-pie"></i> ภาพรวมการผลิตและสต็อก</h1>
+        <span class="rev-chip" id="revContainer" style="display:none;">
+            Rev. <input type="text" id="revInput" value="00" onchange="onRevChange()" readonly>
+            <span class="rev-updated" data-i18n-title="update_label" title="อัปเดต"><i class="fas fa-clock-rotate-left"></i> <span id="lastUpdateTxt">-</span></span>
+        </span>
+    </div>
+    <div class="date-nav" id="dateNav">
+        <button class="icon-btn" id="datePrevBtn" onclick="shiftDateRange(-1)" data-i18n-title="date_prev_title" title="ช่วงก่อนหน้า"><i class="fas fa-chevron-left"></i></button>
+        <label class="date-box" id="dateBox" onclick="openStartDatePicker(event)">
+            <i class="fas fa-calendar"></i> <span id="dateRangeLabel">-</span>
+            <input type="date" class="date-picker" id="startDatePicker">
+        </label>
+        <button class="icon-btn" id="dateNextBtn" onclick="shiftDateRange(1)" data-i18n-title="date_next_title" title="ช่วงถัดไป"><i class="fas fa-chevron-right"></i></button>
+        <div class="toggle-btn-group" id="viewToggleGroup" style="display: none;">
+            <button class="toggle-btn" id="btn1Day" onclick="setViewDays(1)" data-i18n="view_1day">1 วัน</button>
+            <button class="toggle-btn active" id="btn7Days" onclick="setViewDays(7)" data-i18n="view_1week">1 สัปดาห์</button>
+            <button class="toggle-btn" id="btn30Days" onclick="setViewDays(30)" data-i18n="view_1month">1 เดือน</button>
+        </div>
+        <button class="chip-btn" id="todayBtn" onclick="goToToday()" data-i18n="today_btn">วันนี้</button>
+    </div>
+    <div class="topbar-spacer"></div>
+    <div class="topbar-meta">
+        <span class="sync-status"><span class="sync-dot" id="syncDot"></span><span id="syncStatusTxt" data-i18n="connecting_status">กำลังเชื่อมต่อ...</span></span>
+        <span class="viewer-count" id="viewerCount" style="display:none; position:relative; cursor:pointer;" onclick="toggleViewerPanel()" data-i18n-title="viewers_title" title="คนที่กำลังเปิดหน้านี้อยู่">
+            <i class="fas fa-eye"></i> <span id="viewerCountNum">1</span>
+            <div class="bell-panel viewer-panel" id="viewerPanel" style="display:none;">
+                <div class="bell-panel-header">คนที่กำลังเปิดหน้านี้อยู่</div>
+                <div class="bell-panel-list" id="viewerPanelList"></div>
+            </div>
+        </span>
+    </div>
+    <div class="search-box" id="searchBox">
+        <i class="fas fa-magnifying-glass"></i>
+        <input type="text" id="searchInput" class="search-input" data-i18n-placeholder="search_placeholder" placeholder="ค้นหา Model..." style="display:none;" oninput="filterModels(this.value)">
+    </div>
+    <div class="bell-wrap">
+        <button class="btn-bell" id="bellBtn" onclick="toggleBellPanel()" data-i18n-title="notif_title" title="การอัปเดตล่าสุด">
+            <i class="fas fa-bell"></i>
+            <span class="bell-badge" id="bellBadge" style="display:none;">0</span>
+        </button>
+        <div class="bell-panel" id="bellPanel" style="display:none;">
+            <div class="bell-panel-header">
+                <span data-i18n="notif_title">การอัปเดตล่าสุด</span>
+                <button class="bell-mark-read-btn" onclick="markAllNotificationsRead()" data-i18n="mark_all_read">ทำเครื่องหมายว่าอ่านแล้ว</button>
+            </div>
+            <div class="bell-panel-list" id="bellPanelList"></div>
+        </div>
+    </div>
+    <div class="more-menu-wrap">
+        <button class="btn-bell" id="moreMenuBtn" onclick="toggleMoreMenu()" data-i18n-title="more_title" title="ตัวเลือกเพิ่มเติม"><i class="fas fa-ellipsis-vertical"></i></button>
+        <div class="more-menu-panel" id="moreMenuPanel" style="display:none;">
+            <div class="menu-sec-label" data-i18n="io_section">นำเข้า/ส่งออกข้อมูล</div>
+            <button class="more-menu-item" id="exportCsvBtn" onclick="exportCSV()" style="display:none;"><i class="fas fa-file-csv"></i> <span data-i18n="export_csv">ส่งออก CSV</span></button>
+            <button class="more-menu-item" id="importCsvBtn" onclick="triggerImportCSV()" style="display:none;"><i class="fas fa-file-import"></i> <span data-i18n="import_csv">นำเข้า CSV</span></button>
+            <input type="file" id="importCsvFile" accept=".csv" style="display:none;" onchange="handleImportCSVFile(event)">
+            <button class="more-menu-item" onclick="openPrintPreview()"><i class="fas fa-file-pdf"></i> <span data-i18n="export_pdf">ส่งออก PDF</span></button>
+            <button class="more-menu-item" id="clearRangeBtn" onclick="openClearRangeModal()" style="display:none;"><i class="fas fa-eraser"></i> <span data-i18n="clear_range">ลบข้อมูลช่วงวันที่</span></button>
+            <div class="menu-sec-div"></div>
+            <button class="more-menu-item" id="shortcutsHintBtn" onclick="showShortcutsHint()" style="display:none;"><i class="fas fa-circle-question"></i> <span data-i18n="shortcuts_hint">เคล็ดลับการใช้งาน</span></button>
+            <div id="adminSettingsSection" style="display:none;">
+                <div class="menu-sec-div"></div>
+                <div class="menu-sec-label" data-i18n="admin_settings_title">ตั้งค่าระบบ</div>
+                <button class="more-menu-item" onclick="openManageUsers()"><i class="fas fa-users-cog"></i> <span data-i18n="manage_users">จัดการผู้ใช้งาน</span></button>
+                <button class="more-menu-item" onclick="openManageBom()"><i class="fas fa-diagram-project"></i> <span data-i18n="manage_bom">จัดการแหล่งวัตถุดิบ (BOM)</span></button>
+                <button class="more-menu-item" onclick="testTeamsWebhook()"><i class="fas fa-plug-circle-check"></i> <span data-i18n="test_teams">ทดสอบแจ้งเตือน Teams</span></button>
+            </div>
+        </div>
+    </div>
+    <div class="admin-mode-wrap">
+        <button class="btn-login" id="adminBtn" onclick="toggleAdmin()"><i class="fas fa-lock"></i> <span class="login-label" data-i18n="login_btn">เข้าสู่ระบบ</span></button>
+    </div>
+</header>
+
 <div class="dashboard-container">
     <div class="loading-overlay no-print" id="loadingOverlay">
         <div class="skeleton-row w1"></div>
@@ -57,120 +129,65 @@
         <div class="skeleton-row w5"></div>
         <div class="skeleton-row w2"></div>
     </div>
-    <div class="header-section no-print">
-        <div class="title-area">
-            <h1 id="pageTitle"><i class="fas fa-chart-pie"></i> ภาพรวมการผลิตและสต็อก</h1>
-            <p>
-                <span class="sync-status"><span class="sync-dot" id="syncDot"></span><span id="syncStatusTxt" data-i18n="connecting_status">กำลังเชื่อมต่อ...</span></span>
-                <span class="viewer-count" id="viewerCount" style="display:none; position:relative; cursor:pointer;" onclick="toggleViewerPanel()">
-                    <i class="fas fa-eye"></i> <span id="viewerCountNum">1</span> คนกำลังดู
-                    <div class="bell-panel viewer-panel" id="viewerPanel" style="display:none;">
-                        <div class="bell-panel-header">คนที่กำลังเปิดหน้านี้อยู่</div>
-                        <div class="bell-panel-list" id="viewerPanelList"></div>
-                    </div>
-                </span>
-                <span id="revContainer" style="display: none;">
-                    &nbsp;|&nbsp; <span data-i18n="update_label">อัปเดต</span>: <span id="lastUpdateTxt" style="color:var(--btn-primary); font-weight:600;">-</span> &nbsp;|&nbsp;
-                    Rev. <input type="text" id="revInput" value="00" onchange="onRevChange()" style="width: 45px; text-align: center; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 3px; outline:none;" readonly>
-                </span>
-            </p>
+    <button class="kiosk-exit-btn no-print" onclick="exitKioskMode()" title="ออกจากโหมดจอรวม (กด Esc ก็ได้)"><i class="fas fa-compress"></i></button>
+
+    <!-- เครื่องมือแก้ไข: เขียนไว้ตรงนี้ให้ id/onclick เดิมใช้ได้ครบ แล้ว mountControlsIntoSidebar() ย้ายทั้งก้อนไปไว้ล่าง sidebar ตอนเปิดหน้า -->
+    <div class="controls-area no-print">
+        <div class="sb-group-label" id="editGroupDivider" style="display:none;" data-i18n="edit_plan_label">แก้ไขแผน</div>
+        <button class="btn-toggle-visible" id="stockSelectAllBtn" onclick="selectAllVisibleStockModels()" style="display:none;" data-i18n-title="stock_select_all_title" title="เลือก Model ทั้งหมดที่กำลังกรองอยู่ตอนนี้ (ใช้เตรียมเคลียร์/ลบเป็นชุด)">
+            <i class="fas fa-check-double"></i> <span data-i18n="stock_select_all">เลือกทั้งหมด</span>
+        </button>
+        <button class="btn-toggle-visible" id="stockClearSelectionBtn" onclick="clearStockSelection()" style="display:none;" data-i18n-title="clear_selection_title" title="ยกเลิก Model ที่เลือกไว้ทั้งหมด">
+            <i class="fas fa-xmark"></i> <span data-i18n="clear_selection">ยกเลิกการเลือก</span>
+        </button>
+        <div id="stockBulkActionZone" class="sidebar-subsection" style="display:none;">
+            <div class="sb-group-label"><b id="stockBulkCount">0</b> <span data-i18n="models_selected_suffix">Model ที่เลือก</span></div>
+            <button class="btn-toggle-visible" onclick="bulkClearSelectedStockData()" data-i18n-title="clear_stock_data_title" title="เคลียร์สต็อกปัจจุบัน + Shipment ของ Model ที่เลือกไว้">
+                <i class="fas fa-eraser"></i> <span data-i18n="clear_stock_data">เคลียร์ข้อมูลสต็อก</span>
+            </button>
+            <button class="btn-toggle-visible danger" onclick="bulkDeleteSelectedModels()" data-i18n-title="delete_model_bulk_title" title="ลบ Model ที่เลือกไว้ออกจากระบบถาวร">
+                <i class="fas fa-trash"></i> <span data-i18n="delete_model_bulk">ลบ Model</span>
+            </button>
         </div>
-        <div class="controls-area">
-            <div class="sb-group-label no-print" data-i18n="view_label">มุมมอง</div>
-            <button class="btn-toggle-visible no-print" id="hideEmptyBtn" onclick="toggleHideEmptyModels()" style="display:none;" data-i18n-title="hide_empty_title" title="ซ่อน Model ที่ไม่มีข้อมูล"><i class="fas fa-eye-slash"></i> <span data-i18n="hide_empty">ซ่อน Model ว่าง</span></button>
-            <input type="text" id="searchInput" class="search-input no-print" data-i18n-placeholder="search_placeholder" placeholder="ค้นหา Model..." style="display:none;" oninput="filterModels(this.value)">
-            <input type="date" class="date-picker" id="startDatePicker">
-            <div class="toggle-btn-group" id="viewToggleGroup" style="display: none;">
-                <button class="toggle-btn" id="btn1Day" onclick="setViewDays(1)" data-i18n="view_1day">1 วัน</button>
-                <button class="toggle-btn active" id="btn7Days" onclick="setViewDays(7)" data-i18n="view_1week">1 สัปดาห์</button>
-                <button class="toggle-btn" id="btn30Days" onclick="setViewDays(30)" data-i18n="view_1month">1 เดือน</button>
-            </div>
-            <div class="sb-group-label no-print" id="editGroupDivider" style="display:none;" data-i18n="edit_plan_label">แก้ไขแผน</div>
-            <button class="btn-toggle-visible no-print" id="stockSelectAllBtn" onclick="selectAllVisibleStockModels()" style="display:none;" data-i18n-title="stock_select_all_title" title="เลือก Model ทั้งหมดที่กำลังกรองอยู่ตอนนี้ (ใช้เตรียมเคลียร์/ลบเป็นชุด)">
-                <i class="fas fa-check-double"></i> <span data-i18n="stock_select_all">เลือกทั้งหมด</span>
-            </button>
-            <button class="btn-toggle-visible no-print" id="stockClearSelectionBtn" onclick="clearStockSelection()" style="display:none;" data-i18n-title="clear_selection_title" title="ยกเลิก Model ที่เลือกไว้ทั้งหมด">
-                <i class="fas fa-xmark"></i> <span data-i18n="clear_selection">ยกเลิกการเลือก</span>
-            </button>
-            <!-- โซนนี้แยกจากปุ่ม "เลือกทั้งหมด/ยกเลิกการเลือก" ด้านบนด้วยเส้นคั่น + ป้ายจำนวนที่เลือก โผล่เฉพาะตอนมี Model ถูกเลือกไว้จริง (ทำอะไรกับ 0 ตัวไม่ได้อยู่แล้ว) กันสับสนว่าปุ่มไหนกลุ่มไหน -->
-            <div id="stockBulkActionZone" class="sidebar-subsection no-print" style="display:none;">
-                <div class="sb-group-label no-print"><b id="stockBulkCount">0</b> <span data-i18n="models_selected_suffix">Model ที่เลือก</span></div>
-                <button class="btn-toggle-visible no-print" onclick="bulkClearSelectedStockData()" data-i18n-title="clear_stock_data_title" title="เคลียร์สต็อกปัจจุบัน + Shipment ของ Model ที่เลือกไว้">
-                    <i class="fas fa-eraser"></i> <span data-i18n="clear_stock_data">เคลียร์ข้อมูลสต็อก</span>
-                </button>
-                <button class="btn-toggle-visible danger no-print" onclick="bulkDeleteSelectedModels()" data-i18n-title="delete_model_bulk_title" title="ลบ Model ที่เลือกไว้ออกจากระบบถาวร">
-                    <i class="fas fa-trash"></i> <span data-i18n="delete_model_bulk">ลบ Model</span>
-                </button>
-            </div>
-            <button class="btn-toggle-visible no-print" id="stockClearAllBtn" onclick="clearAllStockData()" style="display:none;" data-i18n-title="stock_clear_all_title" title="ล้างสต็อกปัจจุบัน + Shipment ของทุกกระบวนการรวดเดียว (Model ยังอยู่ครบ)">
-                <i class="fas fa-eraser"></i> <span data-i18n="stock_clear_all">ล้างสต็อกทุกกระบวนการ</span>
-            </button>
-            <div class="save-row-wrap no-print">
-                <button class="btn-save no-print" id="saveBtn" onclick="saveToServer()" style="display:none;" disabled><i class="fas fa-save"></i> <span data-i18n="save_btn">บันทึก</span></button>
-                <div class="btn-pill-group no-print" id="undoRedoGroup" style="display:none;">
-                    <button class="btn-pill" id="undoBtn" onclick="undoEdit()" disabled data-i18n-title="undo_title" title="เลิกทำ (Undo)"><i class="fas fa-rotate-left"></i></button>
-                    <button class="btn-pill" id="redoBtn" onclick="redoEdit()" disabled data-i18n-title="redo_title" title="ทำซ้ำ (Redo)"><i class="fas fa-rotate-right"></i></button>
-                </div>
-            </div>
-            <button class="btn-toggle-visible no-print" id="copyPrevPeriodBtn" onclick="copyFromPreviousPeriod()" style="display:none;" data-i18n-title="copy_prev_period_title" title="คัดลอกจำนวนเครื่องจากช่วงก่อนหน้า (ยาวเท่าที่กำลังดูอยู่) มาเป็นจุดตั้งต้น"><i class="fas fa-clone"></i> <span data-i18n="copy_prev_period">คัดลอกจากช่วงก่อนหน้า</span></button>
-            <button class="btn-toggle-visible no-print" id="autoPlanBtn" onclick="openAutoPlan()" style="display:none;" data-i18n-title="auto_plan_title" title="กรอกเครื่อง CW แล้วให้ระบบคำนวณ LC / BW ตาม BOM"><i class="fas fa-wand-magic-sparkles"></i> <span data-i18n="auto_plan">Auto Plan (LC/BW จาก CW)</span></button>
-            <div class="bell-wrap no-print">
-                <button class="btn-bell btn-more" id="bellBtn" onclick="toggleBellPanel()" data-i18n-title="notif_title" title="การอัปเดตล่าสุด">
-                    <i class="fas fa-bell"></i><span class="bell-label" data-i18n="notif_label"> แจ้งเตือน</span>
-                    <span class="bell-badge" id="bellBadge" style="display:none;">0</span>
-                </button>
-                <div class="bell-panel" id="bellPanel" style="display:none;">
-                    <div class="bell-panel-header">
-                        <span data-i18n="notif_title">การอัปเดตล่าสุด</span>
-                        <button class="bell-mark-read-btn" onclick="markAllNotificationsRead()" data-i18n="mark_all_read">ทำเครื่องหมายว่าอ่านแล้ว</button>
-                    </div>
-                    <div class="bell-panel-list" id="bellPanelList"></div>
-                </div>
-            </div>
-            <div class="more-menu-wrap no-print">
-                <button class="btn-bell btn-more" id="moreMenuBtn" onclick="toggleMoreMenu()" data-i18n-title="more_title" title="ตัวเลือกเพิ่มเติม"><i class="fas fa-ellipsis-v"></i> <span data-i18n="more_label">เพิ่มเติม</span></button>
-                <div class="more-menu-panel" id="moreMenuPanel" style="display:none;">
-                    <div class="menu-sec-label" data-i18n="io_section">นำเข้า/ส่งออกข้อมูล</div>
-                    <button class="more-menu-item" id="exportCsvBtn" onclick="exportCSV()" style="display:none;"><i class="fas fa-file-csv"></i> <span data-i18n="export_csv">ส่งออก CSV</span></button>
-                    <button class="more-menu-item" id="importCsvBtn" onclick="triggerImportCSV()" style="display:none;"><i class="fas fa-file-import"></i> <span data-i18n="import_csv">นำเข้า CSV</span></button>
-                    <input type="file" id="importCsvFile" accept=".csv" style="display:none;" onchange="handleImportCSVFile(event)">
-                    <button class="more-menu-item" onclick="openPrintPreview()"><i class="fas fa-file-pdf"></i> <span data-i18n="export_pdf">ส่งออก PDF</span></button>
-                    <div class="menu-sec-div"></div>
-                    <button class="more-menu-item" id="shortcutsHintBtn" onclick="showShortcutsHint()" style="display:none;"><i class="fas fa-circle-question"></i> <span data-i18n="shortcuts_hint">เคล็ดลับการใช้งาน</span></button>
-                    <div id="adminSettingsSection" style="display:none;">
-                        <div class="menu-sec-div"></div>
-                        <div class="menu-sec-label" data-i18n="admin_settings_title">ตั้งค่าระบบ</div>
-                        <button class="more-menu-item" onclick="openManageUsers()"><i class="fas fa-users-cog"></i> <span data-i18n="manage_users">จัดการผู้ใช้งาน</span></button>
-                        <button class="more-menu-item" onclick="openManageBom()"><i class="fas fa-diagram-project"></i> <span data-i18n="manage_bom">จัดการแหล่งวัตถุดิบ (BOM)</span></button>
-                        <button class="more-menu-item" onclick="testTeamsWebhook()"><i class="fas fa-plug-circle-check"></i> <span data-i18n="test_teams">ทดสอบแจ้งเตือน Teams</span></button>
-                    </div>
-                </div>
-            </div>
-            <button class="btn-toggle-visible no-print" id="clearRangeBtn" onclick="openClearRangeModal()" style="display:none;"><i class="fas fa-eraser"></i> <span data-i18n="clear_range">ลบข้อมูลช่วงวันที่</span></button>
-            <button class="btn-send-plan no-print" id="sendPlanBtn" onclick="sendPlanToTeam()" style="display:none;" data-i18n-title="send_plan_title" title="ส่งแผนที่แก้ไขใหม่ให้ทีมทาง Teams"><i class="fas fa-paper-plane"></i> <span data-i18n="send_plan">ส่งแผนให้ทีม</span></button>
+        <button class="btn-toggle-visible" id="stockClearAllBtn" onclick="clearAllStockData()" style="display:none;" data-i18n-title="stock_clear_all_title" title="ล้างสต็อกปัจจุบัน + Shipment ของทุกกระบวนการรวดเดียว (Model ยังอยู่ครบ)">
+            <i class="fas fa-eraser"></i> <span data-i18n="stock_clear_all">ล้างสต็อกทุกกระบวนการ</span>
+        </button>
+        <button class="btn-save" id="saveBtn" onclick="saveToServer()" style="display:none;" disabled><i class="fas fa-floppy-disk"></i> <span data-i18n="save_btn">บันทึก</span></button>
+        <div class="btn-pill-group" id="undoRedoGroup" style="display:none;">
+            <button class="btn-pill" id="undoBtn" onclick="undoEdit()" disabled data-i18n-title="undo_title" title="เลิกทำ (Undo)"><i class="fas fa-rotate-left"></i></button>
+            <button class="btn-pill" id="redoBtn" onclick="redoEdit()" disabled data-i18n-title="redo_title" title="ทำซ้ำ (Redo)"><i class="fas fa-rotate-right"></i></button>
         </div>
-        <div class="summary-grid no-print" id="todayStatsRow" style="display:none;">
-            <div class="metric accent">
+        <button class="btn-toggle-visible" id="autoPlanBtn" onclick="openAutoPlan()" style="display:none;" data-i18n-title="auto_plan_title" title="กรอกเครื่อง CW แล้วให้ระบบคำนวณ LC / BW ตาม BOM"><i class="fas fa-wand-magic-sparkles"></i> <span data-i18n="auto_plan">Auto Plan (LC/BW จาก CW)</span></button>
+        <button class="btn-toggle-visible" id="copyPrevPeriodBtn" onclick="copyFromPreviousPeriod()" style="display:none;" data-i18n-title="copy_prev_period_title" title="คัดลอกจำนวนเครื่องจากช่วงก่อนหน้า (ยาวเท่าที่กำลังดูอยู่) มาเป็นจุดตั้งต้น"><i class="fas fa-clone"></i> <span data-i18n="copy_prev_period">คัดลอกจากช่วงก่อนหน้า</span></button>
+        <button class="btn-send-plan" id="sendPlanBtn" onclick="sendPlanToTeam()" style="display:none;" data-i18n-title="send_plan_title" title="ส่งแผนที่แก้ไขใหม่ให้ทีมทาง Teams"><i class="fas fa-paper-plane"></i> <span data-i18n="send_plan">ส่งแผนให้ทีม</span></button>
+    </div>
+
+    <div class="summary-grid no-print" id="todayStatsRow" style="display:none;">
+        <div class="metric accent">
+            <span class="metric-ic"><i class="fas fa-gears"></i></span>
+            <div class="metric-body">
                 <b class="today-stat-value" id="todayStatMC">0</b>
-                <span data-i18n="mc_today">รวม M/C (วันนี้)</span>
-                <span class="sub" id="todayStatMCSub"></span>
+                <span><span data-i18n="mc_today">รวม M/C (วันนี้)</span> · <span class="sub" id="todayStatMCSub"></span></span>
             </div>
-            <div class="metric ok">
+        </div>
+        <div class="metric ok">
+            <span class="metric-ic"><i class="fas fa-cubes"></i></span>
+            <div class="metric-body">
                 <b class="today-stat-value" id="todayStatPcs">0</b>
                 <span data-i18n="plan_today">รวมแผนผลิต (วันนี้)</span>
-                <span class="sub" data-i18n="pcs_calc_note">ชิ้น · คำนวณจาก OA% / MCT ของแต่ละกลุ่ม</span>
-            </div>
-            <div class="metric">
-                <b class="today-stat-value" id="todayStatModels">0</b>
-                <span data-i18n="models_planned">Model ที่มีแผนในช่วงนี้</span>
-                <span class="sub" id="todayStatModelsSub"></span>
-            </div>
-            <div class="week-panel">
-                <p class="panel-title" data-i18n="workload_panel_title">ภาระงานรายวัน (M/C)</p>
-                <div class="week-chart" id="weekLoadChart"></div>
             </div>
         </div>
-        <button class="kiosk-exit-btn no-print" onclick="exitKioskMode()" title="ออกจากโหมดจอรวม (กด Esc ก็ได้)"><i class="fas fa-compress"></i></button>
+        <div class="metric warn">
+            <span class="metric-ic"><i class="fas fa-list-check"></i></span>
+            <div class="metric-body">
+                <b class="today-stat-value" id="todayStatModels">0</b>
+                <span><span data-i18n="models_planned">Model ที่มีแผนในช่วงนี้</span> · <span class="sub" id="todayStatModelsSub"></span></span>
+            </div>
+        </div>
+        <div class="week-panel">
+            <p class="panel-title" data-i18n="workload_panel_title">ภาระงานรายวัน (M/C)</p>
+            <div class="week-chart" id="weekLoadChart"></div>
+        </div>
     </div>
 
     <div class="print-only-header">
@@ -182,27 +199,28 @@
     </div>
 
     <!-- Announcements (หน้าแรกเท่านั้น, view โดยทุกคน, แก้ไขได้เฉพาะ Admin) -->
-    <div class="announcements-card no-print" id="announcementsCard" style="display:none;">
-        <div class="announcements-header">
-            <h3><i class="fas fa-bullhorn"></i> <span data-i18n="announcements_title">ประกาศ</span></h3>
-            <button class="btn-action btn-add no-print" id="addAnnouncementBtn" onclick="addAnnouncement()" style="display:none;"><i class="fas fa-plus"></i> <span data-i18n="add_announcement">เพิ่มประกาศ</span></button>
-        </div>
+    <div class="announcements-card collapsed no-print" id="announcementsCard" style="display:none;">
+        <h3><i class="fas fa-bullhorn"></i> <span data-i18n="announcements_title">ประกาศ</span></h3>
         <div class="announcements-list" id="announcementsList"></div>
+        <div class="announce-actions">
+            <button class="announce-toggle" onclick="toggleAnnouncementsExpanded(this)"></button>
+            <button class="btn-action btn-add" id="addAnnouncementBtn" onclick="addAnnouncement()" style="display:none;"><i class="fas fa-plus"></i> <span data-i18n="add_announcement">เพิ่มประกาศ</span></button>
+        </div>
     </div>
 
     <!-- ประกาศเฉพาะกระบวนการ (BW/LC/CW/AI) — กรองจาก announcements ก้อนเดียวกับหน้าแรก เอาเฉพาะอันที่ตั้งใจให้กระบวนการนี้เห็น (หรือประกาศทั่วไปที่ไม่ระบุกระบวนการ)
          ไม่มี no-print เพราะต้องติดไปกับตอนพิมพ์/PDF ของแผนด้วยตามที่ขอ — จัดการ (เพิ่ม/แก้/ลบ) ยังทำที่หน้าแรกจุดเดียว ที่นี่แค่แสดงผลกรองแล้ว -->
-    <div class="announcements-card" id="processAnnouncementsCard" style="display:none;">
-        <div class="announcements-header">
-            <h3><i class="fas fa-bullhorn"></i> <span data-i18n="announcements_title">ประกาศ</span></h3>
-        </div>
+    <div class="announcements-card collapsed" id="processAnnouncementsCard" style="display:none;">
+        <h3><i class="fas fa-bullhorn"></i> <span data-i18n="announcements_title">ประกาศ</span></h3>
         <div class="announcements-list" id="processAnnouncementsList"></div>
+        <div class="announce-actions no-print">
+            <button class="announce-toggle" onclick="toggleAnnouncementsExpanded(this)"></button>
+        </div>
     </div>
 
     <!-- Home Dashboard Section — ดูอย่างเดียว ไม่มีการแก้ไขข้อมูล ไม่ผูกกับระบบสิทธิ์ผู้ใช้ -->
     <div id="overviewContainer" style="display:none;">
         <div class="home-grid" id="overviewKpiRow"></div>
-        <div class="legend-row" id="overviewLegendRow"></div>
         <!-- เรียงตามความเร่งด่วน: วิกฤต+วันคงเหลือ (ต้องรีบดู) ก่อน -> แผนล่วงหน้า (วางแผน) -> สรุป/สถิติสะสม (ไม่เร่งด่วน) ปิดท้าย -->
         <div class="home-row2">
             <div class="panel" id="urgentPanel"></div>
@@ -217,6 +235,11 @@
 
     <!-- Table Section -->
     <div id="tableContainer" class="table-container">
+        <div class="table-toolbar no-print" id="planToolbar">
+            <button class="btn-toggle-visible" id="hideEmptyBtn" onclick="toggleHideEmptyModels()" style="display:none;" data-i18n-title="hide_empty_title" title="ซ่อน Model ที่ไม่มีข้อมูล"><i class="fas fa-eye-slash"></i> <span data-i18n="hide_empty">ซ่อน Model ว่าง</span></button>
+            <button class="btn-toggle-visible" id="collapseAllBtn" onclick="toggleCollapseAllGroups()"><i class="fas fa-layer-group"></i> <span id="collapseAllLabel" data-i18n="collapse_all">พับทุกกลุ่ม</span></button>
+            <span class="table-hint"><span class="weekend-swatch"></span> <span data-i18n="weekend_label">วันหยุด</span> · <span data-i18n="table_hint">คลิกช่องเพื่อแก้ · Enter/ลูกศร ไปช่องถัดไป</span></span>
+        </div>
         <div class="table-responsive">
             <table id="mainTable">
                 <thead id="tableHead"></thead>
@@ -235,7 +258,7 @@
                 <button class="toggle-btn" onclick="setStockProcessFilter('CW_EXPORT', this)">CW (Export)</button>
                 <button class="toggle-btn" onclick="setStockProcessFilter('AI', this)">AI</button>
             </div>
-            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <div style="display:flex; gap:8px; flex-wrap:wrap;" id="stockToolbarRight">
                 <button class="toggle-btn no-print" onclick="printStockCountSheet()" data-i18n-title="count_sheet_print_title" title="พิมพ์ใบนับสต็อกของแท็บนี้ ไว้เดินจดตัวเลข">
                     <i class="fas fa-print"></i> <span data-i18n="count_sheet_print">พิมพ์ใบนับ</span>
                 </button>
