@@ -1052,3 +1052,28 @@ body.dark-mode .ship-src { color: #7dd3fc; background: #0c2a3a; }
 .app-sidebar .btn-pill-group .btn-pill { gap: 6px; font-family: inherit; font-size: 12.5px; font-weight: 500; }
 
 .manual-btn { text-decoration: none; }
+
+/* Auto Plan: ปุ่มบนหน้า CW, แถบเตือนแผนไม่ตรง, ล็อกช่อง, หน้าต่างผลลัพธ์ */
+.ap-primary-btn { display: inline-flex; align-items: center; gap: 7px; padding: 5px 14px; border-radius: 99px; border: none; background: var(--btn-primary); color: #fff; font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.ap-primary-btn:hover { background: var(--btn-primary-dark); }
+.ap-stale-bar { display: flex; align-items: center; gap: 10px; padding: 8px 14px; background: var(--warning-soft); color: var(--weekend-head-text); border-bottom: 1px solid color-mix(in srgb, var(--weekend-head-text) 25%, transparent); font-size: 12.5px; }
+.ap-stale-bar .ap-link-btn { margin-left: auto; }
+.ap-link-btn { background: var(--card-bg); border: 1px solid var(--border-strong); border-radius: 99px; padding: 3px 12px; font-family: inherit; font-size: 12px; font-weight: 600; color: var(--btn-primary); cursor: pointer; white-space: nowrap; }
+.ap-link-btn:hover { border-color: var(--btn-primary); }
+.ap-bom-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12.5px; margin-bottom: 10px; }
+.ap-bom-chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 10px; border-radius: 99px; font-weight: 600; font-size: 12px; }
+.ap-bom-chip.ok { background: var(--success-soft); color: var(--success); }
+.ap-bom-chip.warn { background: var(--warning-soft); color: var(--weekend-head-text); }
+.ap-bom-note { font-size: 11.5px; color: var(--text-muted); }
+.ap-summary { font-size: 12.5px; color: var(--text-secondary); margin: 6px 0; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ap-sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; }
+.ap-sw.ap-changed, td.ap-changed { background: color-mix(in srgb, var(--btn-primary) 12%, var(--card-bg)); }
+.ap-sw.ap-locked, td.ap-locked { background: var(--header-bg); }
+td.ap-locked { color: var(--text-muted); }
+.ap-lock { color: var(--text-muted); font-size: 10px; }
+.ap-stock { font-size: 10px; color: var(--success); font-weight: 600; }
+.lock-btn { position: absolute; bottom: 3px; right: 3px; font-size: 9px; color: var(--border-strong); cursor: pointer; opacity: 0; transition: opacity .15s; }
+td.val-cell:hover .lock-btn { opacity: 1; }
+.lock-btn:hover { color: var(--btn-primary); }
+.lock-btn.locked { opacity: 1; color: var(--text-secondary); }
+td.cell-locked input.table-input { outline: 1px dashed var(--text-muted); outline-offset: -1px; }

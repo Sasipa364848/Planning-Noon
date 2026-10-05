@@ -123,6 +123,10 @@ function saveState() {
 const URGENT_MODELS_PATH = path.join(__dirname, 'data', 'urgent-models.json');
 let urgentModels = loadJson(URGENT_MODELS_PATH, () => ({}));
 
+// ช่องแผนที่ล็อกไว้ไม่ให้ Auto Plan เขียนทับ — key เดียวกับ cellData ("LC_<model>_<วันที่>") เก็บไฟล์แยกเหมือน urgentModels
+const PLAN_LOCKS_PATH = path.join(__dirname, 'data', 'plan-locks.json');
+let planLocks = loadJson(PLAN_LOCKS_PATH, () => ({}));
+
 function saveUrgentModels() {
     saveJson(URGENT_MODELS_PATH, urgentModels);
 }
@@ -363,13 +367,13 @@ app.get('/api/state', async (req, res) => {
     if (DB_MODE === 'mysql') {
         try {
             const dbState = await repo.getFullState();
-            return res.json({ ...dbState, announcements: withAnnouncementProcess(dbState.announcements), urgentModels, viewerCount: countActiveViewers(), activeUsers: listActiveViewers() });
+            return res.json({ ...dbState, announcements: withAnnouncementProcess(dbState.announcements), urgentModels, planLocks, viewerCount: countActiveViewers(), activeUsers: listActiveViewers() });
         } catch (e) {
             console.error('[MySQL] /api/state failed:', e);
             return res.status(500).json({ ok: false, error: 'อ่านข้อมูลจากฐานข้อมูลไม่สำเร็จ' });
         }
     }
-    res.json({ ...state, announcements: withAnnouncementProcess(state.announcements), urgentModels, viewerCount: countActiveViewers(), activeUsers: listActiveViewers() });
+    res.json({ ...state, announcements: withAnnouncementProcess(state.announcements), urgentModels, planLocks, viewerCount: countActiveViewers(), activeUsers: listActiveViewers() });
 });
 
 app.post('/api/login', async (req, res) => {
@@ -536,6 +540,17 @@ app.post('/api/save', async (req, res) => {
             if (value === null) delete urgentModels[key]; else urgentModels[key] = value;
         });
         saveUrgentModels();
+    }
+    // ล็อกช่องแผน: Admin ทุกช่อง, ผู้แก้ไขแผนเฉพาะ process ที่ตัวเองได้สิทธิ์
+    if (incoming.planLocks && typeof incoming.planLocks === 'object') {
+        const allowed = user.processes || [];
+        let touched = false;
+        Object.keys(incoming.planLocks).forEach(key => {
+            if (!isAdminUser && !allowed.includes(deriveKeyProcess('cellData', key))) return;
+            if (incoming.planLocks[key] === null) delete planLocks[key]; else planLocks[key] = true;
+            touched = true;
+        });
+        if (touched) saveJson(PLAN_LOCKS_PATH, planLocks);
     }
     if (isAdminUser && Array.isArray(incoming.announcements)) {
         const newMap = {};

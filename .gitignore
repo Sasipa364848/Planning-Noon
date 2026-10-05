@@ -10,3 +10,4 @@ server-log.txt
 data/backups/
 data/*.bak*
 *.log
+data/plan-locks.json

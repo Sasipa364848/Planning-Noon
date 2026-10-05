@@ -105,6 +105,9 @@ const I18N = {
     stock_not_entered: { th: 'ยังไม่ได้กรอกสต็อก', en: 'No stock entered yet' },
     open_plan_hint: { th: 'คลิกเพื่อเปิดแผน', en: 'Click to open the plan' },
     auto_plan: { th: 'Auto Plan', en: 'Auto Plan' },
+    cw_auto_plan_btn: { th: 'สร้างแผน LC + BW จากแผน CW นี้', en: 'Build LC + BW plan from this CW plan' },
+    lock_on_title: { th: 'ล็อกอยู่ — Auto Plan จะไม่เขียนทับช่องนี้ (กดเพื่อปลดล็อก)', en: 'Locked — Auto Plan will not overwrite this cell (click to unlock)' },
+    lock_off_title: { th: 'ล็อกช่องนี้ ไม่ให้ Auto Plan เขียนทับ', en: 'Lock this cell so Auto Plan will not overwrite it' },
     manual_title: { th: 'คู่มือการใช้งาน', en: 'User manual' },
     undo_label: { th: 'เลิกทำ', en: 'Undo' },
     redo_label: { th: 'ทำซ้ำ', en: 'Redo' },
@@ -275,7 +278,7 @@ let isDirty = false;
 let pollTimer = null;
 
 // ข้อมูลจริงทั้งหมดโหลดมาจาก server (แทน localStorage เดิม) — ดูฟังก์ชัน loadStateFromServer()
-let modelState = {}, groupLabels = {}, cellData = {}, cellComments = {}, coverData = {}, coverColors = {}, revData = {}, groupParams = {}, hrsData = {}, timestamps = {}, lastEditor = {}, changeLog = [], announcements = [], stockData = {}, sourceMap = {}, plannedUsedData = {}, coverCodeColors = {}, urgentModels = {};
+let modelState = {}, groupLabels = {}, cellData = {}, cellComments = {}, coverData = {}, coverColors = {}, revData = {}, groupParams = {}, hrsData = {}, timestamps = {}, lastEditor = {}, changeLog = [], announcements = [], stockData = {}, sourceMap = {}, plannedUsedData = {}, coverCodeColors = {}, urgentModels = {}, planLocks = {};
 // process ก่อนหน้าที่แต่ละ process ใช้วัตถุดิบมาจาก (LC มาจาก BW, CW ใช้ mat เดียวกับ LC แค่สวม cover ต่าง) — BW เป็นต้นทาง ไม่มี source
 const PRECEDING_PROCESS = { LC: 'BW', CW: 'LC' };
 let knownMaxSeq = null; // ใช้เทียบว่ามี log การอัปเดตใหม่เข้ามาระหว่างที่เราเปิดหน้านี้ค้างไว้หรือไม่
@@ -417,9 +420,10 @@ function cwDemandOnLc(dateKey, warnings) {
     return demand;
 }
 
-// คืนค่า { plan: { LC: { model: { dateKey: { pcs, mc, useBy } } }, BW: { model: { dateKey: { pcs, mc } } } }, warnings }
+// คืนค่า { plan: { LC: { model: { dateKey: { pcs, gross, fromStock, mc, useBy } } }, BW: { model: { dateKey: { pcs, gross, fromStock, mc } } } }, warnings }
 // rounding: 'half' = ปัดขึ้นทีละ 0.5 เครื่อง, 'whole' = ปัดขึ้นเป็นเครื่องเต็ม — leadDays: ผลิต LC ก่อน CW ใช้กี่วัน (0 = วันเดียวกัน)
-function computeCascadePlan(startDate, days, rounding = 'half', leadDays = 0) {
+// netStock: หักสต็อกที่มีอยู่ก่อน — ใช้สต็อก LC/BW ที่นับไว้ไปก่อน แล้วค่อยวางผลิตเฉพาะส่วนที่ขาด
+function computeCascadePlan(startDate, days, rounding = 'half', leadDays = 0, netStock = false) {
     const plan = { LC: {}, BW: {} };
     const warnings = new Set();
     const roundMc = (mc) => {
@@ -456,29 +460,66 @@ function computeCascadePlan(startDate, days, rounding = 'half', leadDays = 0) {
         });
     }
 
-    // 2) เครื่อง LC ต่อวัน แล้วส่ง demand ต่อไป BW วันเดียวกัน
+    // หักสต็อก: สต็อกที่นับไว้คือของ "วันนี้" — หักส่วนที่ปลายทางจะใช้ไปก่อนถึงวันแรกของช่วงออกก่อน
+    // แล้วเอาที่เหลือไปลดยอดที่ต้องผลิต เริ่มจากวันแรกๆ (วันในอดีตของช่วงไม่หัก เพราะผลิตไปแล้ว)
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const start0 = new Date(startDate); start0.setHours(0, 0, 0, 0);
+    const firstNetIdx = Math.max(0, Math.round((today - start0) / 86400000));
+    const preDays = Math.max(0, Math.round((start0 - today) / 86400000));
+    const netAgainstStock = (proc, m, need) => {
+        const rec = getStockRecord(`${proc}_${m}`);
+        if (rec.value === '' || rec.value == null) return {};
+        let left = parseFloat(rec.value) || 0;
+        const links = consumersFeeding(proc, m);
+        for (let i = 0; i < preDays && left > 0; i++) left -= consumerUsageOnDate(links, formatDateHeader(addDays(today, i))).pcs;
+        left = Math.max(0, left);
+        const used = {};
+        viewKeys.forEach((dk, idx) => {
+            if (idx < firstNetIdx || left <= 0 || !need[dk]) return;
+            const take = Math.min(left, need[dk]);
+            need[dk] -= take; left -= take; used[dk] = take;
+        });
+        return used;
+    };
+    const lcGross = {}, lcFromStock = {};
+    Object.keys(lcPcs).forEach(m => {
+        lcGross[m] = { ...lcPcs[m] };
+        lcFromStock[m] = netStock ? netAgainstStock('LC', m, lcPcs[m]) : {};
+    });
+
+    // 2) เครื่อง LC ต่อวัน + ความต้องการ BW (BW ผลิตวันเดียวกับ LC ตามยอดที่ LC ต้องผลิตจริงหลังหักสต็อก)
+    const bwNeed = {};
     viewKeys.forEach((dateKey, idx) => {
-        const bwDemand = {};
         Object.keys(lcPcs).forEach(m => {
-            const pcs = lcPcs[m][dateKey];
-            if (!pcs) return;
+            const gross = lcGross[m][dateKey] || 0;
+            if (!gross) return;
+            const pcs = lcPcs[m][dateKey] || 0;
             const groupId = findGroupOfModel('LC', m);
             const perMc = pcsPerMachine('LC', groupId, dateKey);
             if (perMc <= 0) { warnings.add(`LC กลุ่ม ${(groupLabels[groupId] || groupId).replace(/<br>/g, ' ')} มี MCT เป็น 0 คำนวณจำนวนเครื่องไม่ได้`); return; }
             if (!plan.LC[m]) plan.LC[m] = {};
-            plan.LC[m][dateKey] = { pcs: Math.round(pcs), mc: roundMc(pcs / perMc), useBy: formatDateHeader(addDays(startDate, idx + LC_SHELF_LIFE_DAYS)) };
-
+            plan.LC[m][dateKey] = { pcs: Math.round(pcs), gross: Math.round(gross), fromStock: Math.round(lcFromStock[m][dateKey] || 0), mc: roundMc(pcs / perMc), useBy: formatDateHeader(addDays(startDate, idx + LC_SHELF_LIFE_DAYS)) };
+            if (!pcs) return;
             const entry = sourceMap[`LC_${m}`];
             if (!entry || !entry.srcModel) { warnings.add(`LC "${m}" ยังไม่ได้กำหนดแหล่งวัตถุดิบ (BOM) จาก BW — ไม่ถูกนำไปคำนวณ`); return; }
             if (!findGroupOfModel('BW', entry.srcModel)) { warnings.add(`LC "${m}" ชี้ไป BW "${entry.srcModel}" ซึ่งไม่พบแล้ว (ถูกเปลี่ยนชื่อ/ลบ) — แก้ที่เมนู BOM`); return; }
-            bwDemand[entry.srcModel] = (bwDemand[entry.srcModel] || 0) + pcs * (entry.ratio || 1);
+            if (!bwNeed[entry.srcModel]) bwNeed[entry.srcModel] = {};
+            bwNeed[entry.srcModel][dateKey] = (bwNeed[entry.srcModel][dateKey] || 0) + pcs * (entry.ratio || 1);
         });
-        Object.keys(bwDemand).forEach(m => {
-            const groupId = findGroupOfModel('BW', m);
+    });
+
+    // 3) หักสต็อก BW แล้วคิดเครื่อง BW
+    Object.keys(bwNeed).forEach(m => {
+        const gross = { ...bwNeed[m] };
+        const fromStock = netStock ? netAgainstStock('BW', m, bwNeed[m]) : {};
+        const groupId = findGroupOfModel('BW', m);
+        viewKeys.forEach(dateKey => {
+            if (!gross[dateKey]) return;
+            const pcs = bwNeed[m][dateKey] || 0;
             const perMc = pcsPerMachine('BW', groupId, dateKey);
             if (perMc <= 0) { warnings.add(`BW วันที่ ${dateKey} หยุด (Hrs/Day = 0) หรือกลุ่ม ${(groupLabels[groupId] || groupId).replace(/<br>/g, ' ')} มี MCT เป็น 0 แต่ LC ต้องใช้งาน — คำนวณจำนวนเครื่องไม่ได้`); return; }
             if (!plan.BW[m]) plan.BW[m] = {};
-            plan.BW[m][dateKey] = { pcs: Math.round(bwDemand[m]), mc: roundMc(bwDemand[m] / perMc) };
+            plan.BW[m][dateKey] = { pcs: Math.round(pcs), gross: Math.round(gross[dateKey]), fromStock: Math.round(fromStock[dateKey] || 0), mc: roundMc(pcs / perMc) };
         });
     });
     return { plan, warnings: Array.from(warnings) };
@@ -493,26 +534,93 @@ function getViewDateKeys() {
 }
 
 let autoPlanRounding = 'half';
-let autoPlanClearOthers = false;
+let autoPlanClearOthers = true;
 let autoPlanLeadDays = 0;
+let autoPlanNetStock = true;
 function openAutoPlan() {
     if (!canEditProcess('LC') && !canEditProcess('BW')) { showToast('ต้องมีสิทธิ์แก้ไข LC หรือ BW', 'error'); return; }
     renderAutoPlanModal();
 }
+function computeAutoPlanForView() {
+    return computeCascadePlan(getViewStartDate(), viewDays, autoPlanRounding, autoPlanLeadDays, autoPlanNetStock);
+}
+
+// สถานะ BOM ของสาย CW → LC → BW (ผูกไว้กี่รุ่นจากทั้งหมด) — โชว์ในหน้าต่าง Auto Plan ให้รู้ว่าคำนวณได้ครบหรือยัง
+function autoPlanBomStatus() {
+    const count = (proc, nextProc) => {
+        let total = 0, linked = 0;
+        processConfig[proc].groups.forEach(g => (modelState[g.id] || []).forEach(m => {
+            total++;
+            const e = sourceMap[`${proc}_${m}`];
+            if (e && e.srcProc === nextProc && e.srcModel && findGroupOfModel(nextProc, e.srcModel)) linked++;
+        }));
+        return { total, linked };
+    };
+    return { cw: count('CW', 'LC'), lc: count('LC', 'BW') };
+}
+// Model ที่อยู่ในสาย Auto Plan (มีต้นทางผูก BOM มาหา) — ค่าเดิมของ Model พวกนี้คือสิ่งที่ Auto Plan ดูแล
+function autoPlanChainModels(proc) {
+    const from = proc === 'LC' ? 'CW' : 'LC';
+    const set = new Set();
+    Object.keys(sourceMap).forEach(k => {
+        const e = sourceMap[k];
+        if (k.startsWith(from + '_') && e && e.srcProc === proc && e.srcModel) set.add(e.srcModel);
+    });
+    return set;
+}
+// รายการช่องที่ Auto Plan จะเปลี่ยน — ใช้ร่วมกันทั้งหน้าต่าง Auto Plan, ปุ่มนำไปใส่ และแถบเตือน "แผนไม่ตรงกับ CW"
+// ช่องที่สต็อกพอแล้ว (เครื่อง = 0) จะถูกล้าง · clearOthers: ล้างค่าเดิมของ Model ในสาย BOM ที่ไม่มีความต้องการแล้วด้วย
+function autoPlanChanges(plan, dateKeys, clearOthers) {
+    const changes = [];
+    AUTO_PLAN_TARGETS.forEach(proc => {
+        const chain = autoPlanChainModels(proc);
+        processConfig[proc].groups.forEach(g => (modelState[g.id] || []).forEach(m => {
+            dateKeys.forEach(dk => {
+                const key = `${proc}_${m}_${dk}`;
+                const v = plan[proc][m] && plan[proc][m][dk];
+                const cur = cellData[key] || '';
+                let to;
+                if (v) to = v.mc > 0 ? String(v.mc) : '';
+                else if (clearOthers && cur && chain.has(m)) to = '';
+                else return;
+                if ((parseFloat(cur) || 0) === (parseFloat(to) || 0)) return;
+                changes.push({ proc, model: m, dk, key, from: cur, to, locked: !!planLocks[key] });
+            });
+        }));
+    });
+    return changes;
+}
 
 function renderAutoPlanModal() {
     const dateKeys = getViewDateKeys();
-    const { plan, warnings } = computeCascadePlan(getViewStartDate(), viewDays, autoPlanRounding, autoPlanLeadDays);
-    const sections = ['LC', 'BW'].map(proc => {
+    const { plan, warnings } = computeAutoPlanForView();
+    const changes = autoPlanChanges(plan, dateKeys, autoPlanClearOthers).filter(c => canEditProcess(c.proc));
+    const changeMap = new Map(changes.map(c => [c.key, c]));
+    const willChange = changes.filter(c => !c.locked).length;
+    const lockedSkip = changes.length - willChange;
+    const bom = autoPlanBomStatus();
+    const bomIncomplete = bom.cw.linked < bom.cw.total || bom.lc.linked < bom.lc.total;
+    const bomChip = (label, st) => {
+        const ok = st.linked === st.total;
+        return `<span class="ap-bom-chip ${ok ? 'ok' : 'warn'}"><i class="fas fa-${ok ? 'circle-check' : 'triangle-exclamation'}"></i> ${label} ผูกแล้ว ${st.linked}/${st.total}</span>`;
+    };
+    const sections = AUTO_PLAN_TARGETS.map(proc => {
         const rows = [];
         processConfig[proc].groups.forEach(g => {
             (modelState[g.id] || []).forEach(m => {
-                if (!plan[proc][m]) return;
+                const hasChange = dateKeys.some(dk => changeMap.has(`${proc}_${m}_${dk}`));
+                if (!plan[proc][m] && !hasChange) return;
                 const cells = dateKeys.map(dk => {
-                    const v = plan[proc][m][dk];
-                    const cur = parseFloat(cellData[`${proc}_${m}_${dk}`]) || 0;
-                    if (!v) return `<td style="color:var(--text-muted);">-${cur > 0 ? `<br><span class="autoplan-old">เดิม ${cur}</span>` : ''}</td>`;
-                    return `<td><strong>${v.mc}</strong><br><span class="autoplan-pcs">${v.pcs.toLocaleString()} pcs</span>${v.useBy ? `<br><span class="autoplan-pcs">ใช้ก่อน ${v.useBy}</span>` : ''}${cur > 0 && cur !== v.mc ? `<br><span class="autoplan-old">เดิม ${cur}</span>` : ''}</td>`;
+                    const key = `${proc}_${m}_${dk}`;
+                    const v = plan[proc][m] && plan[proc][m][dk];
+                    const cur = parseFloat(cellData[key]) || 0;
+                    const ch = changeMap.get(key);
+                    const lockIcon = planLocks[key] ? '<i class="fas fa-lock ap-lock" title="ล็อกไว้ — ไม่เขียนทับ"></i> ' : '';
+                    const cls = ch ? (ch.locked ? 'ap-locked' : 'ap-changed') : '';
+                    const old = cur > 0 && (!v || cur !== v.mc) ? `<br><span class="autoplan-old">เดิม ${cur}</span>` : '';
+                    if (!v) return `<td class="${cls}" style="color:var(--text-muted);">${lockIcon}-${old}</td>`;
+                    const stockNote = v.fromStock ? `<br><span class="ap-stock">ใช้สต็อก ${v.fromStock.toLocaleString()}</span>` : '';
+                    return `<td class="${cls}">${lockIcon}<strong>${v.mc}</strong><br><span class="autoplan-pcs">${v.pcs.toLocaleString()} pcs</span>${stockNote}${v.useBy && v.pcs ? `<br><span class="autoplan-pcs">ใช้ก่อน ${v.useBy}</span>` : ''}${old}</td>`;
                 }).join('');
                 rows.push(`<tr><td class="col-model" style="text-align:left;">${escapeHtml(aiDisplayName(proc, m))}</td>${cells}</tr>`);
             });
@@ -523,60 +631,64 @@ function renderAutoPlanModal() {
                 : '<div style="font-size:12px; color:var(--text-muted);">ไม่มีความต้องการในช่วงวันที่นี้</div>'}`;
     }).join('');
     const warnHtml = warnings.length ? `<div class="autoplan-warn"><i class="fas fa-triangle-exclamation"></i> ${warnings.map(w => `<div>${escapeHtml(w)}</div>`).join('')}</div>` : '';
+    const bomAction = !bomIncomplete ? '' : (isAdmin
+        ? '<button class="ap-link-btn" onclick="closeModal(); openManageBom();"><i class="fas fa-diagram-project"></i> ไปผูก BOM ที่ขาด</button>'
+        : '<span class="ap-bom-note">รุ่นที่ยังไม่ผูกจะคำนวณไม่ได้ — แจ้งแอดมินให้ผูก BOM</span>');
 
     document.getElementById('modalRoot').innerHTML = `
         <div class="modal-overlay" id="modalOverlay">
             <div class="modal-box modal-box-wide autoplan-box">
-                <h3><i class="fas fa-wand-magic-sparkles"></i> Auto Plan — คำนวณ LC / BW จากแผน CW</h3>
+                <h3><i class="fas fa-wand-magic-sparkles"></i> Auto Plan — สร้างแผน LC / BW จากแผน CW</h3>
                 <p style="font-size:12px; color:var(--text-secondary); margin:-8px 0 10px;">
                     ใช้จำนวนเครื่อง CW ที่กรอกไว้ (${dateKeys[0]} ถึง ${dateKeys[dateKeys.length - 1]}) × OA/MCT/Hrs แล้วไล่ตาม BOM (CW → LC → BW) และอัตราส่วน
                 </p>
+                <div class="ap-bom-row"><b>BOM:</b> ${bomChip('CW → LC', bom.cw)} ${bomChip('LC → BW', bom.lc)} ${bomAction}</div>
                 <div class="autoplan-opts">
+                    <label><input type="checkbox" ${autoPlanNetStock ? 'checked' : ''} onchange="autoPlanNetStock=this.checked; renderAutoPlanModal();"> <b>หักสต็อก LC/BW ที่มีอยู่ก่อน</b></label>
                     <label><input type="radio" name="apRound" ${autoPlanRounding === 'half' ? 'checked' : ''} onchange="autoPlanRounding='half'; renderAutoPlanModal();"> ปัดขึ้นทีละ 0.5 เครื่อง</label>
                     <label><input type="radio" name="apRound" ${autoPlanRounding === 'whole' ? 'checked' : ''} onchange="autoPlanRounding='whole'; renderAutoPlanModal();"> ปัดขึ้นเป็นเครื่องเต็ม</label>
-                    <label><input type="checkbox" ${autoPlanClearOthers ? 'checked' : ''} onchange="autoPlanClearOthers=this.checked;"> ล้างค่าเดิมของ Model ที่ไม่มีความต้องการ</label>
+                    <label><input type="checkbox" ${autoPlanClearOthers ? 'checked' : ''} onchange="autoPlanClearOthers=this.checked; renderAutoPlanModal();"> ล้างค่าเดิมของ Model ที่ไม่มีความต้องการ</label>
                     <label>ผลิต LC ก่อน CW ใช้ <input type="number" min="0" max="${LC_SHELF_LIFE_DAYS}" step="1" value="${autoPlanLeadDays}" style="width:52px;" onchange="autoPlanLeadDays=Math.max(0, Math.min(${LC_SHELF_LIFE_DAYS}, parseInt(this.value, 10) || 0)); renderAutoPlanModal();"> วัน</label>
                 </div>
-                <div class="autoplan-note"><i class="fas fa-hourglass-half"></i> งาน LC มีอายุ ${LC_SHELF_LIFE_DAYS} วัน: ถ้าวันที่ต้องผลิต LC หยุด (Hrs/Day = 0) ระบบจะเลื่อนไปผลิตวันทำงานก่อนหน้า แต่ไม่เกิน ${LC_SHELF_LIFE_DAYS} วันก่อนที่ CW ใช้</div>
+                <div class="autoplan-note"><i class="fas fa-hourglass-half"></i> งาน LC มีอายุ ${LC_SHELF_LIFE_DAYS} วัน: ถ้าวันที่ต้องผลิต LC หยุด (Hrs/Day = 0) ระบบจะเลื่อนไปผลิตวันทำงานก่อนหน้า แต่ไม่เกิน ${LC_SHELF_LIFE_DAYS} วันก่อนที่ CW ใช้${autoPlanNetStock ? ' · หักสต็อก: ใช้สต็อกที่นับไว้ไปก่อน (หักส่วนที่จะถูกใช้ก่อนวันแรกของช่วงแล้ว) ผลิตเฉพาะส่วนที่ขาด' : ''}</div>
                 ${warnHtml}
+                <div class="ap-summary"><span class="ap-sw ap-changed"></span> จะเปลี่ยน <b>${willChange}</b> ช่อง${lockedSkip ? ` · <span class="ap-sw ap-locked"></span> <i class="fas fa-lock"></i> ล็อกไว้ ไม่เขียนทับ <b>${lockedSkip}</b> ช่อง` : ''}</div>
                 <div style="max-height:50vh; overflow:auto;">${sections}</div>
                 <div class="modal-actions" style="margin-top:16px;">
                     <button class="modal-btn modal-btn-cancel" onclick="closeModal()">ปิด</button>
-                    <button class="modal-btn modal-btn-confirm" onclick="applyAutoPlan()"><i class="fas fa-check"></i> นำไปใส่ในแผน LC / BW</button>
+                    <button class="modal-btn modal-btn-confirm" onclick="applyAutoPlan()" ${willChange ? '' : 'disabled'}><i class="fas fa-check"></i> นำไปใส่ในแผน LC / BW (${willChange} ช่อง)</button>
                 </div>
             </div>
         </div>`;
     document.getElementById('modalOverlay').onclick = (e) => { if (e.target.id === 'modalOverlay') closeModal(); };
 }
 
-// เขียนผลลงตาราง LC/BW บนหน้าจอเท่านั้น — ยังไม่บันทึกจนกว่าจะกดปุ่ม "บันทึก" ตามปกติ
+// เขียนผลลงตาราง LC/BW บนหน้าจอเท่านั้น — ยังไม่บันทึกจนกว่าจะกดปุ่ม "บันทึก" ตามปกติ · ช่องที่ล็อกไว้ไม่แตะ
 function applyAutoPlan() {
-    const dateKeys = getViewDateKeys();
-    const { plan } = computeCascadePlan(getViewStartDate(), viewDays, autoPlanRounding, autoPlanLeadDays);
-    let changed = 0;
-    ['LC', 'BW'].forEach(proc => {
-        if (!canEditProcess(proc)) return;
-        processConfig[proc].groups.forEach(g => {
-            (modelState[g.id] || []).forEach(m => {
-                dateKeys.forEach(dk => {
-                    const key = `${proc}_${m}_${dk}`;
-                    const v = plan[proc][m] && plan[proc][m][dk];
-                    let newVal;
-                    if (v) newVal = String(v.mc);
-                    else if (autoPlanClearOthers && cellData[key]) newVal = '';
-                    else return;
-                    if ((cellData[key] || '') === newVal) return;
-                    pushUndo(key, cellData[key]);
-                    if (newVal) cellData[key] = newVal; else delete cellData[key];
-                    markKeyDirty('cellData', key);
-                    changed++;
-                });
-            });
-        });
+    const { plan } = computeAutoPlanForView();
+    const changes = autoPlanChanges(plan, getViewDateKeys(), autoPlanClearOthers).filter(c => canEditProcess(c.proc) && !c.locked);
+    changes.forEach(c => {
+        pushUndo(c.key, cellData[c.key]);
+        if (c.to) cellData[c.key] = c.to; else delete cellData[c.key];
+        markKeyDirty('cellData', c.key);
     });
     closeModal();
-    rerenderCurrentView();
-    showToast(changed > 0 ? `ใส่แผนอัตโนมัติแล้ว ${changed} ช่อง — ตรวจสอบแล้วกด "บันทึก"` : 'ไม่มีช่องไหนเปลี่ยน', changed > 0 ? 'success' : 'info');
+    // กดจากหน้า CW → พาไปดูผลที่หน้า LC เลย (และให้การบันทึกส่งในนามหน้า LC/BW ซึ่งผู้ใช้มีสิทธิ์แก้)
+    if (currentProcess === 'CW' && changes.length) switchProcess(canEditProcess('LC') ? 'LC' : 'BW');
+    else rerenderCurrentView();
+    showToast(changes.length > 0 ? `ใส่แผนอัตโนมัติแล้ว ${changes.length} ช่อง (LC + BW) — ตรวจสอบแล้วกด "บันทึก"` : 'ไม่มีช่องไหนเปลี่ยน', changes.length > 0 ? 'success' : 'info');
+}
+
+// แถบเตือนบนหน้า LC/BW: แผนตอนนี้ไม่ตรงกับที่คำนวณจาก CW (เช่น มีคนแก้ CW หลังสร้างแผน) — ไม่นับช่องที่ล็อกไว้
+function renderAutoPlanStaleBar() {
+    const bar = document.getElementById('autoPlanStaleBar');
+    if (!bar) return;
+    if (!AUTO_PLAN_TARGETS.includes(currentProcess) || !canEditProcess(currentProcess)) { bar.style.display = 'none'; return; }
+    const { plan } = computeAutoPlanForView();
+    const n = autoPlanChanges(plan, getViewDateKeys(), true).filter(c => c.proc === currentProcess && !c.locked).length;
+    if (!n) { bar.style.display = 'none'; return; }
+    bar.style.display = 'flex';
+    bar.innerHTML = `<i class="fas fa-arrows-rotate"></i> <span>แผน ${currentProcess} ไม่ตรงกับที่คำนวณจากแผน CW อยู่ <b>${n}</b> ช่องในช่วงนี้</span> <button class="ap-link-btn" onclick="openAutoPlan()">เปิด Auto Plan เพื่อตรวจ</button>`;
 }
 
 // === ส่งแผนเครื่องจักรให้ทีมผ่าน Teams — เฉพาะ Admin กดเอง ไม่ใช่ auto-send ทุกครั้งที่บันทึก ===
@@ -983,7 +1095,7 @@ async function saveToServer() {
     const patch = {};
     const PATCH_SOURCES = {
         modelState, groupLabels, cellData, cellComments, coverData, coverColors,
-        coverCodeColors, revData, groupParams, hrsData, stockData, sourceMap, plannedUsedData, urgentModels
+        coverCodeColors, revData, groupParams, hrsData, stockData, sourceMap, plannedUsedData, urgentModels, planLocks
     };
     Object.keys(PATCH_SOURCES).forEach(objName => {
         const p = buildKeyPatch(PATCH_SOURCES[objName], dirtyKeys[objName]);
@@ -1063,6 +1175,7 @@ async function loadStateFromServer() {
         plannedUsedData = data.plannedUsedData || {};
         coverCodeColors = data.coverCodeColors || {};
         urgentModels = data.urgentModels || {};
+        planLocks = data.planLocks || {};
         if (currentProcess === 'Overview') renderAnnouncements();
         updateViewerCountUI(data.viewerCount, data.activeUsers);
 
@@ -2901,6 +3014,20 @@ function generateTable() {
                     td.appendChild(commentText);
                 }
 
+                // ล็อกช่อง (เฉพาะ LC/BW ที่ Auto Plan คำนวณให้) — ช่องที่ล็อก Auto Plan จะไม่เขียนทับ
+                if (AUTO_PLAN_TARGETS.includes(currentProcess)) {
+                    const locked = !!planLocks[storageKey];
+                    if (locked) td.classList.add('cell-locked');
+                    if (locked || canEditProcess(currentProcess)) {
+                        const lockBtn = document.createElement('span');
+                        lockBtn.className = 'lock-btn' + (locked ? ' locked' : ' no-print');
+                        lockBtn.innerHTML = `<i class="fas fa-${locked ? 'lock' : 'lock-open'}"></i>`;
+                        lockBtn.title = locked ? t('lock_on_title') : t('lock_off_title');
+                        if (canEditProcess(currentProcess)) lockBtn.onclick = (e) => { e.stopPropagation(); togglePlanLock(storageKey); };
+                        td.appendChild(lockBtn);
+                    }
+                }
+
                 tr.appendChild(td);
             }
             groupTbody.appendChild(tr);
@@ -2938,6 +3065,9 @@ function generateTable() {
     });
     calcTotals();
     updateCollapseAllLabel();
+    const cwBtn = document.getElementById('cwAutoPlanBtn');
+    if (cwBtn) cwBtn.style.display = currentProcess === 'CW' && (canEditProcess('LC') || canEditProcess('BW')) ? 'inline-flex' : 'none';
+    renderAutoPlanStaleBar();
     updateTodayStats();
     bindVerticalStickyScroll();
     syncVerticalSticky();
@@ -2962,6 +3092,13 @@ function bindVerticalStickyScroll() {
     if (!container || container.dataset.stickyBound) return;
     container.dataset.stickyBound = 'true';
     container.addEventListener('scroll', syncVerticalSticky);
+}
+
+const AUTO_PLAN_TARGETS = ['LC', 'BW'];
+function togglePlanLock(key) {
+    if (planLocks[key]) delete planLocks[key]; else planLocks[key] = true;
+    markKeyDirty('planLocks', key);
+    generateTable();
 }
 
 // พับ/กางกลุ่มในตารางแผน — จำเฉพาะในหน้าที่เปิดอยู่ (ไม่ข้ามการรีเฟรช) ค่าเริ่มต้นดูที่ generateTable()
