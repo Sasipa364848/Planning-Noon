@@ -23,11 +23,47 @@
     --weekend-head: #fffbeb;
     --weekend-head-text: #b45309;
     --weekend-cell: #fffdf5;
+    --danger-soft: #fef2f2;
+    --warning-soft: #fffbeb;
+    --success-soft: #f0fdf4;
     --shadow-sm: 0 1px 2px rgba(17, 24, 39, 0.05), 0 1px 3px rgba(17, 24, 39, 0.04);
     --shadow-md: 0 4px 14px rgba(17, 24, 39, 0.08);
     --radius-lg: 14px;
     --radius-md: 10px;
     --radius-sm: 8px;
+}
+
+/* === โหมดมืด — สลับด้วยปุ่มข้างๆ ปุ่มเปลี่ยนภาษา (ไม่ได้อิง prefers-color-scheme เพราะอยากให้ผู้ใช้กดเลือกเองชัดๆ ไม่ใช่ตาม OS) ===
+   ทับแค่ตัวแปรสี — component ส่วนใหญ่อ้างอิง var(--...) อยู่แล้วจึงเปลี่ยนสีตามไปเองอัตโนมัติ ยกเว้นบาง selector ที่เคย hardcode #fff/hex ตรงๆ ซึ่งแก้ให้อ้าง var เดียวกันนี้แล้วเป็นส่วนใหญ่
+   ยกเว้นโซนพิมพ์ (.print-preview-*, @media print) ที่ตั้งใจให้เป็นกระดาษขาวเสมอไม่ว่าจะเปิดโหมดมืดอยู่หรือไม่ */
+body.dark-mode {
+    --bg-color: #14161c;
+    --card-bg: #1c1f27;
+    --header-bg: #22252e;
+    --total-std: #2b2410;
+    --total-std-text: #f0b429;
+    --total-dg1: #10261a;
+    --total-dg1-text: #4ade80;
+    --grand-total: #22243f;
+    --grand-total-text: #a5b4fc;
+    --text-main: #e5e7eb;
+    --text-secondary: #9ca3af;
+    --text-muted: #6b7280;
+    --border-color: #2d3139;
+    --border-strong: #3f4450;
+    --btn-primary: #818cf8;
+    --btn-primary-dark: #6366f1;
+    --btn-primary-soft: #262a45;
+    --success: #4ade80;
+    --danger: #f87171;
+    --weekend-head: #2b2410;
+    --weekend-head-text: #f0b429;
+    --weekend-cell: #201c10;
+    --danger-soft: #3a1e1e;
+    --warning-soft: #2b2410;
+    --success-soft: #10261a;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.25);
+    --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.4);
 }
 
 * { box-sizing: border-box; }
@@ -37,26 +73,154 @@ body {
     background: var(--bg-color);
     color: var(--text-main);
     margin: 0;
-    padding: 24px;
+    padding: 0;
     font-size: 13px;
     -webkit-font-smoothing: antialiased;
 }
 
-/* Tab Styles — flat underline nav, not folder tabs */
-.tabs-container { max-width: 1200px; margin: 0 auto; display: flex; gap: 4px; overflow-x: auto; border-bottom: 1px solid var(--border-color); }
-.tab-btn {
-    padding: 12px 6px; margin-right: 22px; background: transparent; border: none; border-bottom: 2px solid transparent;
-    font-family: inherit; font-weight: 500; font-size: 14px; color: var(--text-secondary); cursor: pointer;
-    transition: color 0.15s ease, border-color 0.15s ease; white-space: nowrap;
+/* --- โครงหน้าแนวนอน: เมนู/เครื่องมืออยู่ sidebar ซ้าย เนื้อหาอยู่ขวา --- */
+.app-shell { display: flex; min-height: 100vh; align-items: flex-start; }
+/* overflow-y:auto เดิมเคยอยู่ตรงนี้ (ที่ .app-sidebar เอง) แต่ตาม spec ถ้าตั้ง overflow-y เป็นค่าอื่นที่ไม่ใช่ visible โดยไม่ตั้ง overflow-x กำกับไว้ browser จะบังคับ overflow-x เป็น auto ไปด้วยเงียบๆ
+   กลายเป็นว่า sidebar ทั้งกล่องเป็นกรอบตัดขอบแนวนอนไปด้วย ทำให้ dropdown ของ Login/เพิ่มเติม/แจ้งเตือน (ที่ตั้งใจให้ล้นขวาออกไปในเนื้อหาได้) โดนตัดตรงขอบขวาของ sidebar (240px) พอดี
+   ย้าย overflow-y:auto ไปไว้ที่ .sidebar-scroll (ครอบแค่เมนู/แถบเครื่องมือ) แทน ให้แถบแบรนด์ (ที่ dropdown พวกนี้อยู่) ไม่ถูกครอบด้วย overflow container อีก ดรอปดาวน์เลยล้นขวาออกไปได้ตามที่ตั้งใจจริงๆ */
+.app-sidebar {
+    width: 240px; flex-shrink: 0; background: var(--card-bg); border-right: 1px solid var(--border-color);
+    position: sticky; top: 0; height: 100vh; padding: 14px 12px;
+    display: flex; flex-direction: column; gap: 10px; z-index: 300;
 }
-.tab-btn.active { color: var(--btn-primary); border-bottom-color: var(--btn-primary); font-weight: 600; }
-.tab-btn:hover:not(.active) { color: var(--text-main); }
+.sidebar-scroll { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+.app-main { flex: 1; min-width: 0; padding: 20px 24px; }
+.sidebar-brand {
+    font-weight: 600; font-size: 14px; color: var(--text-main); padding: 2px 8px 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+.sidebar-brand i { color: var(--btn-primary); margin-right: 4px; }
+/* แถบแบรนด์แยกเป็น 2 แถว: บน = โลโก้+ชื่อแอป (มีพื้นที่พอให้โลโก้ใหญ่ขึ้นโดยไม่เบียดจนชื่อแอปโดนตัด), ล่าง = ปุ่มสลับภาษา/กระดิ่ง */
+.sidebar-brand-stack { display: flex; flex-direction: column; gap: 10px; }
+.brand-row-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.brand-logo-row { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.brand-logo-img { height: 34px; width: auto; display: block; border-radius: 3px; flex-shrink: 0; }
+.brand-app-name { font-size: 14px; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sidebar-close, .sidebar-toggle { display: none; background: none; border: none; cursor: pointer; color: var(--text-secondary); font-size: 16px; }
+.sidebar-toggle {
+    display: none; width: 38px; height: 38px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+    background: var(--card-bg); margin-bottom: 12px; align-items: center; justify-content: center;
+}
+
+/* Tab Styles — ในโหมด sidebar เรียงเป็นรายการแนวตั้งแทนแถบขีดเส้นใต้ */
+.tabs-container {
+    display: flex; flex-direction: column; gap: 2px; background: transparent;
+}
+.tab-btn {
+    display: flex; align-items: center; gap: 9px; padding: 9px 10px; background: transparent; border: none;
+    border-radius: var(--radius-sm); font-family: inherit; font-weight: 500; font-size: 13px;
+    color: var(--text-secondary); cursor: pointer; transition: background 0.15s ease, color 0.15s ease;
+    white-space: nowrap; text-align: left; width: 100%;
+}
+.tab-btn i { width: 15px; text-align: center; font-size: 13px; }
+.tab-btn.active { color: var(--btn-primary); background: var(--btn-primary-soft); font-weight: 600; }
+.tab-btn:hover:not(.active) { color: var(--text-main); background: var(--header-bg); }
+
+/* เครื่องมือทั้งหมดใน sidebar เรียงลงมาเป็นแนวตั้ง (ย้ายมาจาก .controls-area ด้วย JS ตอนเปิดหน้า) */
+.sidebar-tools { border-top: 1px solid var(--border-color); padding-top: 10px; }
+.app-sidebar .controls-area { flex-direction: column; align-items: stretch; gap: 6px; }
+.app-sidebar .controls-area > *,
+.app-sidebar .bell-wrap, .app-sidebar .more-menu-wrap, .app-sidebar .admin-mode-wrap { width: 100%; }
+.app-sidebar .btn-toggle-visible, .app-sidebar .search-input, .app-sidebar .date-picker,
+.app-sidebar .btn-save, .app-sidebar .btn-send-plan, .app-sidebar .btn-bell,
+.app-sidebar .btn-login, .app-sidebar .toggle-btn-group { width: 100%; }
+.app-sidebar .controls-divider { display: none !important; }
+
+/* หัวข้อกลุ่มในแถบเครื่องมือ — แบ่งเป็น มุมมอง / แก้ไขแผน / เครื่องมืออื่น ให้กวาดตาหาของเจอเร็วขึ้น */
+.sb-group-label {
+    font-size: 10px; font-weight: 700; color: var(--text-muted); letter-spacing: 0.04em;
+    padding: 10px 2px 2px; border-top: 1px solid var(--border-color); margin-top: 4px;
+}
+.app-sidebar .controls-area > .sb-group-label:first-child { border-top: none; margin-top: 0; padding-top: 0; }
+/* ทุกปุ่มในแถบนี้กว้างเท่ากันและชิดซ้ายเหมือนกันหมด อ่านเป็นรายการเดียวกัน ไม่ขาดๆ เกินๆ */
+.app-sidebar .controls-area button { justify-content: flex-start; }
+.app-sidebar .toggle-btn-group .toggle-btn { justify-content: center; }
+/* ตัวกรองมุมมอง ไม่ควรเด่นกว่าปุ่มบันทึก — ตอนเปิดใช้ป้ายสีอ่อนแทนพื้นทึบ */
+.app-sidebar .btn-toggle-visible { background: transparent; border-color: var(--border-strong); color: var(--text-secondary); font-weight: 500; }
+.app-sidebar .btn-toggle-visible:hover { background: var(--header-bg); }
+.app-sidebar .btn-toggle-visible.active { background: var(--btn-primary-soft); border-color: var(--btn-primary); color: var(--btn-primary); font-weight: 600; }
+/* ปุ่มลบ/ล้างข้อมูล (ทำแล้วย้อนกลับไม่ได้) ใช้โทนแดงแยกจากปุ่มอื่นในแถบเดียวกัน กันกดพลาด */
+.app-sidebar .btn-toggle-visible.danger { color: var(--danger); border-color: var(--danger); }
+.app-sidebar .btn-toggle-visible.danger:hover { background: var(--danger-soft); }
+/* โซนย่อยของปุ่มที่ "ทำงานกับ Model ที่เลือกไว้" (หน้าสต็อก) — แยกกรอบ+พื้นหลังจางๆ ออกจากปุ่มเลือก/ยกเลิกเลือกด้านบน กันสับสนว่าปุ่มไหนเป็นกลุ่มไหน */
+.sidebar-subsection { background: var(--header-bg); border-radius: var(--radius-sm); padding: 2px 8px 8px; display: flex; flex-direction: column; gap: 6px; }
+.sidebar-subsection .sb-group-label { border-top: none; margin-top: 0; }
+.app-sidebar .btn-send-plan { margin-top: 2px; }
+/* กระดิ่งย้ายขึ้นไปอยู่แถวชื่อแอปด้านบน (ทุกคนใช้ได้ ไม่ใช่เครื่องมือแก้ไข) */
+/* แถวปุ่มบนสุด (บัญชี/เพิ่มเติม/แจ้งเตือน/ภาษา) — เรียงตามที่ต้องการ: เข้าสู่ระบบ, เพิ่มเติม, แจ้งเตือน อยู่แถวแรก ส่วนภาษาลงแถว 2 เสมอ
+   ใช้ CSS order สลับลำดับการแสดงผล (ไม่ต้องยุ่งกับลำดับ DOM/JS ที่ append กระดิ่ง+เพิ่มเติมไว้) และให้ปุ่มภาษา flex-basis:100% บังคับให้ตกบรรทัดใหม่เสมอ ไม่ใช่แค่ตอนที่ไม่พอ
+   ยอมให้แถวแรกตกบรรทัดต่อได้ด้วย (flex-wrap) ถ้าพื้นที่ไม่พอจริงๆ แทนที่จะบีบปุ่มจนตัวหนังสือตัดคำเองหรือทะลุขอบ sidebar */
+.sidebar-brand .brand-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; row-gap: 6px; width: 100%; }
+.sidebar-brand .bell-wrap .btn-bell { width: 32px; height: 32px; padding: 0; justify-content: center; }
+.sidebar-brand .bell-wrap .bell-label { display: none; }
+.sidebar-brand .bell-wrap { width: auto; position: static; order: 3; }
+.sidebar-brand .more-menu-wrap .btn-more { width: 32px; height: 32px; padding: 0; justify-content: center; }
+.sidebar-brand .more-menu-wrap .btn-more span { display: none; }
+.sidebar-brand .more-menu-wrap { width: auto; order: 2; }
+/* ปุ่มสลับภาษา TH/EN — อยู่แถวชื่อแอปด้านบนเหมือนกระดิ่ง (ทุกคนใช้ได้ ไม่ใช่แค่โหมดแก้ไข) ขนาดกะทัดรัดเท่าปุ่มไอคอนข้างๆ ไม่ยืดเต็มความกว้าง sidebar แบบ toggle-btn-group ทั่วไป
+   ห่อด้วย .lang-row-wrap ที่ flex-basis:100% แทนที่จะใส่ตรงๆ บน #langToggleGroup เอง — กันไม่ให้พื้นหลังของเม็ดยา TH/EN ยืดเต็มแถวไปด้วย (อยากได้แค่ "บังคับให้ตกบรรทัดใหม่เสมอ" ไม่ใช่ทำให้เม็ดยากว้างเต็มแถว) */
+.lang-row-wrap { flex-basis: 100%; display: flex; justify-content: flex-end; align-items: center; gap: 6px; order: 5; }
+#langToggleGroup { width: auto; padding: 2px; flex-shrink: 0; }
+#langToggleGroup .toggle-btn { flex: 0 0 auto; padding: 5px 9px; font-size: 11px; }
+/* ปุ่มโหมดมืด — อยู่แถวเดียวกับ TH/EN ตามที่ขอ */
+.dark-mode-toggle {
+    width: 32px; height: 32px; flex-shrink: 0; border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+    background: var(--card-bg); color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 13px; transition: 0.15s;
+}
+.dark-mode-toggle:hover { background: var(--header-bg); color: var(--btn-primary); }
+body.dark-mode .dark-mode-toggle { background: var(--btn-primary-soft); color: var(--btn-primary); border-color: var(--btn-primary); }
+/* ปุ่มโหมดจอรวม/ทีวี — ย้ายมาจากแถบเครื่องมือเดิม (ไม่เคยถูกซ่อนตามหน้าอยู่แล้ว จึงย้ายมาอยู่แถวเดียวกับ TH/EN/โหมดมืดถาวรได้เลย) กะทัดรัดแบบเดียวกับปุ่มข้างๆ แทนปุ่มยาวมีตัวหนังสือแบบเดิม */
+.kiosk-toggle-btn {
+    width: 32px; height: 32px; flex-shrink: 0; border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+    background: var(--card-bg); color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 13px; transition: 0.15s;
+}
+.kiosk-toggle-btn:hover { background: var(--header-bg); color: var(--btn-primary); }
+/* ปุ่ม Login/Admin Mode ย้ายมาอยู่แถวชื่อแอปด้านบนคู่กับ TH/EN + กระดิ่งด้วย ทำกะทัดรัดแบบเดียวกับปุ่มข้างๆ
+   ข้อความยาวได้หลายแบบ (Login/เข้าสู่ระบบ สั้น, Admin Mode สั้น, แต่ "ชื่อผู้ใช้ (BW, LC, CW)" ตอน login แบบจำกัดสิทธิ์อาจยาวมาก)
+   จึงตัดด้วย ellipsis ถ้ายาวเกินไปแทนที่จะดันปุ่มอื่นล้นหรือตัวหนังสือขึ้นบรรทัดใหม่ในปุ่มเดียวกัน (ตัดคำภาษาไทยกลางคำ) */
+.sidebar-brand .admin-mode-wrap { width: auto; max-width: 100%; margin-top: 0; padding-top: 0; border-top: none; flex-shrink: 1; min-width: 0; order: 1; }
+.sidebar-brand .admin-mode-wrap .btn-login { width: auto; padding: 5px 10px; font-size: 12px; gap: 5px; min-width: 0; }
+.sidebar-brand .admin-mode-wrap .btn-login:first-child { flex: 0 1 auto; min-width: 0; }
+.sidebar-brand .admin-mode-wrap .login-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; max-width: 130px; vertical-align: middle; }
+/* กระดิ่งอยู่ชิดขอบขวาของ sidebar ที่แคบ (240px) — panel กว้าง 320px ถ้าอิงตำแหน่งกระดิ่งเองจะล้นขอบจอซ้าย (right:0 ทำให้ left ติดลบ)
+   จึงให้ panel อิงตำแหน่งจาก .sidebar-brand ทั้งแถบแทน (กว้างเท่า sidebar) ชิดซ้ายสุดของแถบ กางออกทางขวาเข้าไปในเนื้อหาแทน ไม่มีทางล้นซ้ายอีก */
+.sidebar-brand { position: relative; }
+.sidebar-brand .bell-panel { left: 0; right: auto; top: calc(100% + 8px); }
+/* 1 Day / 1 Week / 1 Month — เรียงเป็นแถวเดียวเต็มความกว้าง ไม่ตกบรรทัด */
+.app-sidebar .toggle-btn-group { display: flex; }
+.app-sidebar .toggle-btn-group .toggle-btn { flex: 1; padding: 7px 2px; font-size: 11px; white-space: nowrap; }
+/* บันทึก + undo/redo อยู่แถวเดียวกัน ประหยัดความสูง */
+.app-sidebar #saveBtn { flex: 1; }
+.app-sidebar .btn-pill-group { width: auto; flex: 0 0 auto; }
+.app-sidebar .save-row-wrap { display: flex; gap: 6px; width: 100%; }
+.app-sidebar .admin-mode-wrap { display: flex !important; }
+.app-sidebar .more-menu-panel { left: 0; right: auto; width: 210px; }
+/* left:0 มีผลเฉพาะตอนกระดิ่งยังอยู่ในแถบเครื่องมือแนวตั้งเต็มความกว้าง — ตอนนี้กระดิ่งย้ายไปแถวชื่อแอปด้านบนแล้ว (ดู .sidebar-brand ด้านล่าง) ไม่ต้องใช้กฎนี้กับมัน ไม่งั้น panel 320px จะกางออกไปทางขวาจนล้นจอ */
+.app-sidebar .controls-area .bell-panel { left: 0; right: auto; }
+.bell-panel { max-width: calc(100vw - 24px); }
+.app-sidebar .controls-area { display: flex; }
 
 .dashboard-container {
     position: relative;
-    max-width: 1200px; margin: 16px auto 0 auto; background: var(--card-bg);
+    max-width: 1600px; margin: 0 auto; background: var(--card-bg);
     border-radius: var(--radius-lg);
     padding: 28px; box-shadow: var(--shadow-sm); border: 1px solid var(--border-color);
+}
+
+/* จอเล็ก: sidebar กลายเป็นลิ้นชักที่กดเปิด-ปิด */
+@media (max-width: 900px) {
+    /* ซ่อน/โชว์ด้วย display ตรงๆ — ทดสอบแล้วว่าเชื่อถือได้กว่าการเลื่อนด้วย transform/left ซึ่งบางเบราว์เซอร์ไม่ยอมขยับ */
+    .app-sidebar { display: none; position: fixed; left: 0; top: 0; box-shadow: var(--shadow-md); }
+    .app-sidebar.open { display: flex; }
+    .app-sidebar.open .sidebar-close { display: block; }
+    .sidebar-toggle { display: flex; }
+    .app-main { padding: 14px; }
+    .dashboard-container { padding: 16px; }
 }
 
 /* --- Skeleton loading (แสดงระหว่างรอโหลดข้อมูลครั้งแรกจาก server) --- */
@@ -65,6 +229,7 @@ body {
     padding: 28px; display: flex; flex-direction: column; gap: 14px; overflow: hidden;
 }
 .skeleton-row { height: 22px; border-radius: 6px; background: linear-gradient(90deg, #f0f1f3 25%, #f7f8f9 50%, #f0f1f3 75%); background-size: 200% 100%; animation: skeletonPulse 1.4s ease-in-out infinite; }
+body.dark-mode .skeleton-row { background: linear-gradient(90deg, #22252e 25%, #2a2d38 50%, #22252e 75%); background-size: 200% 100%; }
 .skeleton-row.w1 { width: 220px; height: 26px; margin-bottom: 8px; }
 .skeleton-row.w2 { width: 100%; }
 .skeleton-row.w3 { width: 92%; }
@@ -81,7 +246,7 @@ body {
 
 .search-input {
     padding: 8px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); font-family: inherit;
-    outline: none; color: var(--text-main); width: 160px; background: #fff; font-size: 13px; transition: border-color 0.15s;
+    outline: none; color: var(--text-main); width: 160px; background: var(--card-bg); font-size: 13px; transition: border-color 0.15s;
 }
 .search-input:focus { border-color: var(--btn-primary); }
 
@@ -91,33 +256,44 @@ body {
 .trend-down { color: var(--danger); }
 .trend-flat { color: var(--text-muted); }
 
-.trend-row { display: flex; justify-content: center; gap: 10px; margin-top: 10px; font-size: 11px; flex-wrap: wrap; }
-.trend-row .trend-arrow { font-size: 11px; margin-left: 0; }
-
 .sync-status { font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; }
 .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); }
 .sync-dot.offline { background: var(--danger); }
 
 .editor-name-input {
     padding: 8px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); font-family: inherit;
-    outline: none; color: var(--text-main); width: 140px; background: #fff; font-size: 13px; transition: border-color 0.15s;
+    outline: none; color: var(--text-main); width: 140px; background: var(--card-bg); font-size: 13px; transition: border-color 0.15s;
 }
 .editor-name-input:focus { border-color: var(--btn-primary); }
 
-.toggle-btn-group { display: flex; background: #f3f4f6; border-radius: var(--radius-sm); padding: 2px; }
+.toggle-btn-group { display: flex; background: var(--header-bg); border-radius: var(--radius-sm); padding: 2px; }
 .toggle-btn { padding: 7px 14px; border: none; background: transparent; cursor: pointer; font-family: inherit; font-weight: 500; font-size: 13px; color: var(--text-secondary); border-radius: 7px; transition: all 0.15s ease; }
-.toggle-btn.active { background: #fff; color: var(--text-main); font-weight: 600; box-shadow: var(--shadow-sm); }
+.toggle-btn.active { background: var(--card-bg); color: var(--text-main); font-weight: 600; box-shadow: var(--shadow-sm); }
 
-.date-picker { padding: 8px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); font-family: inherit; outline: none; color: var(--text-main); background: #fff; font-size: 13px; }
+.date-picker { padding: 8px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); font-family: inherit; outline: none; color: var(--text-main); background: var(--card-bg); font-size: 13px; }
 
 /* --- Notification bell --- */
 .bell-wrap { position: relative; }
 .btn-bell {
     position: relative; width: 38px; height: 38px; border-radius: var(--radius-sm); border: 1px solid var(--border-strong);
-    background: #fff; color: var(--text-secondary); cursor: pointer; font-size: 15px; display: flex;
+    background: var(--card-bg); color: var(--text-secondary); cursor: pointer; font-size: 15px; display: flex;
     align-items: center; justify-content: center; transition: 0.15s;
 }
-.btn-bell:hover { background: #f9fafb; color: var(--btn-primary); border-color: var(--btn-primary); }
+.btn-bell:hover { background: var(--header-bg); color: var(--btn-primary); border-color: var(--btn-primary); }
+.btn-bell.btn-more { width: auto; padding: 0 12px; gap: 6px; font-size: 13px; font-weight: 500; }
+.btn-bell:disabled { opacity: 0.4; cursor: default; }
+.btn-bell:disabled:hover { background: var(--card-bg); color: var(--text-secondary); border-color: var(--border-strong); }
+.controls-divider { width: 1px; align-self: stretch; min-height: 24px; background: var(--border-strong); margin: 0 2px; }
+.menu-sec-label { font-size: 10px; font-weight: 700; color: var(--text-muted); letter-spacing: 0.03em; padding: 8px 10px 4px; }
+.menu-sec-div { border-top: 1px solid var(--border-color); margin: 4px 2px; }
+.btn-pill-group { display: flex; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); overflow: hidden; }
+.btn-pill {
+    width: 38px; height: 38px; border: none; border-right: 1px solid var(--border-strong); background: var(--card-bg);
+    color: var(--text-secondary); cursor: pointer; font-size: 15px; display: flex; align-items: center; justify-content: center; transition: 0.15s;
+}
+.btn-pill:last-child { border-right: none; }
+.btn-pill:hover:not(:disabled) { background: var(--header-bg); color: var(--btn-primary); }
+.btn-pill:disabled { opacity: 0.4; cursor: default; }
 .btn-bell.active { background: var(--btn-primary-soft); color: var(--btn-primary); border-color: var(--btn-primary); }
 .hide-empty-live { display: none !important; }
 .bell-badge {
@@ -127,54 +303,156 @@ body {
 }
 .bell-panel {
     position: absolute; top: calc(100% + 8px); right: 0; width: 320px; max-height: 380px; overflow-y: auto;
-    background: #fff; border-radius: var(--radius-md); box-shadow: var(--shadow-md); border: 1px solid var(--border-color);
+    background: var(--card-bg); border-radius: var(--radius-md); box-shadow: var(--shadow-md); border: 1px solid var(--border-color);
     z-index: 200;
 }
-.bell-panel-header { padding: 12px 16px; font-weight: 600; color: var(--text-main); border-bottom: 1px solid var(--border-color); font-size: 13px; }
+.bell-panel-header { padding: 12px 16px; font-weight: 600; color: var(--text-main); border-bottom: 1px solid var(--border-color); font-size: 13px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.bell-mark-read-btn { background: none; border: none; padding: 0; font-family: inherit; font-size: 11.5px; font-weight: 600; color: var(--btn-primary); cursor: pointer; white-space: nowrap; }
+.bell-mark-read-btn:hover { color: var(--btn-primary-dark); text-decoration: underline; }
 .bell-panel-list { display: flex; flex-direction: column; }
-.bell-item { padding: 10px 16px; border-bottom: 1px solid #f3f4f6; font-size: 12.5px; }
+.bell-item { padding: 10px 16px; border-bottom: 1px solid var(--border-color); font-size: 12.5px; overflow-wrap: break-word; word-break: break-word; }
 .bell-item:last-child { border-bottom: none; }
 .bell-item .bell-proc { font-weight: 700; color: var(--btn-primary); }
-.bell-item .bell-models { color: var(--text-main); margin-top: 2px; }
+.bell-item .bell-models { color: var(--text-main); margin-top: 2px; overflow-wrap: break-word; word-break: break-word; }
 .bell-item .bell-meta { color: var(--text-muted); font-size: 11px; margin-top: 3px; }
 .bell-empty { padding: 24px 16px; text-align: center; color: var(--text-muted); font-size: 12.5px; }
+/* ฉากหลังทึบจางๆ ตอนเปิดเมนู "แจ้งเตือน"/"เพิ่มเติม"/ตั้งค่าระบบ — sidebar แคบ เปิดแล้วเนื้อหาข้างๆ อาจปนกับป็อบอัพจนดูสับสนว่ากดอะไรได้บ้าง คลิกที่ฉากนี้ = ปิดเมนู (เหมือนคลิกข้างนอก) */
+.menu-backdrop { position: fixed; inset: 0; background: rgba(17, 24, 39, 0.35); z-index: 190; }
+.viewer-panel { left: 0; right: auto; width: 220px; cursor: default; }
+.viewer-item { padding: 8px 16px; border-bottom: 1px solid var(--border-color); font-size: 12.5px; display: flex; align-items: center; gap: 6px; }
+.viewer-item:last-child { border-bottom: none; }
+.viewer-item i { color: var(--success); font-size: 8px; }
+.viewer-item .viewer-name { color: var(--text-main); }
+.viewer-item .viewer-anon { color: var(--text-muted); font-style: italic; }
 
 /* --- เมนู "ตัวเลือกเพิ่มเติม" (รวม hide-empty/CSV/kiosk ไว้ในที่เดียว ลดความรกของแถบปุ่ม) --- */
 .more-menu-wrap { position: relative; }
 .more-menu-panel {
     position: absolute; top: calc(100% + 8px); right: 0; width: 210px;
-    background: #fff; border-radius: var(--radius-md); box-shadow: var(--shadow-md); border: 1px solid var(--border-color);
+    background: var(--card-bg); border-radius: var(--radius-md); box-shadow: var(--shadow-md); border: 1px solid var(--border-color);
     z-index: 200; padding: 6px; display: flex; flex-direction: column; gap: 2px;
 }
 .more-menu-item {
     display: flex; align-items: center; gap: 10px; padding: 9px 12px; border: none; background: none;
     border-radius: var(--radius-sm); font-family: inherit; font-size: 13px; color: var(--text-main); cursor: pointer; text-align: left; width: 100%;
 }
-.more-menu-item:hover { background: #f3f4f6; }
+.more-menu-item:hover { background: var(--header-bg); }
 .more-menu-item.active { background: var(--btn-primary-soft); color: var(--btn-primary); font-weight: 600; }
 .more-menu-item i { width: 16px; text-align: center; }
 
-.btn-export, .btn-login, .btn-save {
+.btn-export, .btn-login, .btn-save, .btn-send-plan {
     border-radius: var(--radius-sm); cursor: pointer; font-family: inherit; font-weight: 600; font-size: 13px;
     display: flex; align-items: center; gap: 7px; transition: 0.15s ease; padding: 9px 16px; border: 1px solid transparent;
 }
-.btn-export { background: #fff; color: var(--text-secondary); border-color: var(--border-strong); }
-.btn-export:hover { background: #f9fafb; color: var(--text-main); border-color: var(--text-muted); }
-.btn-login { background: #fff; color: var(--text-secondary); border-color: var(--border-strong); }
-.btn-login:hover { background: #f9fafb; color: var(--text-main); border-color: var(--text-muted); }
-.btn-login.logged-in { background: #f0fdf4; color: var(--success); border-color: #bbf7d0; }
-.btn-login.logged-in:hover { background: #dcfce7; }
+/* ปุ่มส่งแผนให้ทีม — ใช้สีม่วงโทน Teams ให้แยกออกจากปุ่มบันทึก (น้ำเงิน) และ Admin Mode (เขียว) ที่อยู่ติดกัน */
+.btn-send-plan { background: #5b5fc7; color: #fff; border-color: #5b5fc7; box-shadow: var(--shadow-sm); }
+.btn-send-plan:hover { background: #4b4fa8; border-color: #4b4fa8; }
+.btn-export { background: var(--card-bg); color: var(--text-secondary); border-color: var(--border-strong); }
+.btn-export:hover { background: var(--header-bg); color: var(--text-main); border-color: var(--text-muted); }
+.btn-login { background: var(--card-bg); color: var(--text-secondary); border-color: var(--border-strong); }
+.btn-login:hover { background: var(--header-bg); color: var(--text-main); border-color: var(--text-muted); }
+.btn-login.logged-in { background: var(--success-soft); color: var(--success); border-color: var(--success); }
+.btn-login.logged-in:hover { background: var(--success-soft); filter: brightness(0.95); }
 .btn-save { background: var(--btn-primary); color: #fff; position: relative; box-shadow: var(--shadow-sm); }
 .btn-save:hover:not(:disabled) { background: var(--btn-primary-dark); }
-.btn-save:disabled { background: #e5e7eb; color: var(--text-muted); cursor: not-allowed; box-shadow: none; }
+.btn-save:disabled { background: var(--border-color); color: var(--text-muted); cursor: not-allowed; box-shadow: none; }
 .btn-save.dirty::after {
     content: ''; position: absolute; top: -3px; right: -3px; width: 9px; height: 9px;
     border-radius: 50%; background: #f59e0b; border: 2px solid #fff;
 }
 
+/* --- แถบสรุปด้านบนของหน้า process --- */
+.summary-grid { display: grid; grid-template-columns: repeat(3, minmax(120px, 1fr)) minmax(260px, 1.6fr); gap: 12px; margin-bottom: 18px; align-items: stretch; }
+@media (max-width: 1100px) { .summary-grid { grid-template-columns: repeat(3, 1fr); } .summary-grid .week-panel { grid-column: 1 / -1; } }
+@media (max-width: 700px) { .summary-grid { grid-template-columns: 1fr 1fr; } }
+.metric {
+    background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 14px 16px;
+    border-left: 3px solid var(--border-strong); display: flex; flex-direction: column; justify-content: center;
+}
+.metric.accent { border-left-color: var(--btn-primary); }
+.metric.ok { border-left-color: var(--success); }
+.metric b { font-size: 24px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; color: var(--text-main); }
+.metric > span { font-size: 11px; color: var(--text-secondary); }
+.metric .sub { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+.week-panel { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 12px 14px; }
+.week-panel .panel-title { margin: 0 0 6px; }
+.week-chart { height: 78px; }
+
+/* --- หน้า Home: การ์ดสรุปต่อ process + แผงกราฟ (โครงเดียวกับ prototype) --- */
+.home-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.proc-card {
+    background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-md);
+    padding: 14px 16px; display: flex; align-items: center; gap: 14px;
+    border-left-width: 3px; border-left-style: solid;
+}
+.proc-card .info { flex: 1; min-width: 0; }
+.proc-card .pname { font-size: 12px; font-weight: 700; color: var(--text-secondary); letter-spacing: 0.03em; }
+.proc-card .pstock { font-size: 26px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.proc-card .punit { font-size: 11px; color: var(--text-muted); margin-bottom: 7px; }
+.mini-donut { width: 62px; height: 62px; flex-shrink: 0; position: relative; }
+.mini-donut .mid { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.mini-donut .mid b { font-size: 15px; line-height: 1; font-variant-numeric: tabular-nums; }
+.mini-donut .mid span { font-size: 10px; color: var(--text-muted); }
+.status-pill { display: inline-flex; padding: 3px 10px; border-radius: var(--radius-sm); font-size: 12px; font-weight: 700; }
+.proc-card .pused { font-size: 12px; font-weight: 600; color: var(--btn-primary); margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border-color); }
+.proc-card .pused.pused-empty { color: var(--text-muted); font-weight: 400; }
+
+/* heatmap กว้างเต็มแถวของตัวเอง (เนื้อหาแนวนอน กว้าง×เตี้ย) แยกจากการ์ดคู่ด้านล่าง (เนื้อหาแนวตั้ง แคบ×สูง)
+   เอามาไว้คอลัมน์เดียวกันแล้วความสูงไม่มีทางเท่ากันพอดี จึงแยกเป็นคนละแถว แล้วให้แต่ละแถวสมมาตรกันเองแทน */
+.home-row2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: stretch; margin-bottom: 14px; }
+.home-row2 .panel { display: flex; flex-direction: column; }
+@media (max-width: 768px) { .home-row2 { grid-template-columns: 1fr; } }
+.panel { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 16px 18px; }
+.panel:empty { display: none; }
+.panel-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px; gap: 10px; }
+.panel-title { font-size: 13px; font-weight: 700; color: var(--text-secondary); margin: 0; }
+.panel-note { font-size: 11px; color: var(--text-muted); }
+.legend-row { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11px; color: var(--text-secondary); margin: -6px 0 16px 2px; }
+.legend-row span { display: inline-flex; align-items: center; gap: 4px; }
+.legend-row i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+
+/* กราฟแท่งวาดเอง (ไม่ใช้ library ภายนอก) */
+.bars { display: flex; align-items: flex-end; gap: 6px; height: 100%; }
+.bar-col { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; height: 100%; }
+.bar-val { font-size: 11px; font-weight: 700; color: var(--text-secondary); line-height: 1; font-variant-numeric: tabular-nums; }
+.bar-track { flex: 1; width: 100%; max-width: 44px; display: flex; align-items: flex-end; }
+.bar-fill { width: 100%; border-radius: 4px 4px 0 0; min-height: 2px; }
+.bar-label { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+/* กราฟแท่งขยายเต็มพื้นที่การ์ดที่เหลือ (การ์ดถูก stretch ให้สูงเท่ากันในแถวเดียวกับการ์ดอื่น) แทนที่จะสูงตายตัว 150px
+   ไม่งั้นพอการ์ดข้างๆ สูงกว่า จะเหลือพื้นที่ว่างโล่งด้านล่างกราฟ ดูไม่สมดุลกับการ์ดข้างเคียง */
+.bar-chart-wrap { flex: 1; min-height: 130px; }
+
+/* ตารางความหนาแน่นของแผน (heatmap) */
+.heat { width: 100%; border-collapse: separate; border-spacing: 3px; }
+.heat th { background: none; padding: 2px; font-size: 11px; color: var(--text-muted); font-weight: 400; text-align: center; text-transform: none; letter-spacing: 0; border: none; position: static; z-index: auto; }
+.heat th.wk { color: var(--weekend-head-text); }
+.heat td { padding: 0; border: none; }
+.heat .rowlab { font-size: 12px; font-weight: 700; color: var(--text-secondary); text-align: left; padding-right: 6px; white-space: nowrap; }
+.heat .hcell { border-radius: 6px; height: 36px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.heat-scale { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-muted); margin-top: 10px; }
+.heat-scale i { width: 16px; height: 9px; border-radius: 2px; display: inline-block; }
+
+/* Top Model ที่ผลิตเยอะสุด — แท่งแนวนอน (label ยาว จึงเรียงแนวนอนแทนแนวตั้งแบบกราฟ Total Plan) */
+/* .hbar-list ยืดเต็มความสูงการ์ดแล้วกระจายแถวให้พอดี ไม่กระจุกอยู่บนแล้วเหลือที่ว่างข้างล่าง (การ์ดถูก stretch ให้สูงเท่าการ์ดข้างๆใน .home-row2) */
+.hbar-list { flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; gap: 10px; }
+.hbar-row { display: flex; align-items: center; gap: 8px; }
+.hbar-label { width: 38%; font-size: 12px; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
+.hbar-track { flex: 1; background: var(--header-bg); border-radius: 6px; height: 24px; }
+.hbar-fill { background: var(--btn-primary); height: 100%; border-radius: 6px; min-width: 3px; }
+/* ตัวเลขอยู่นอกแท่งเสมอ ชิดขวาในคอลัมน์กว้างคงที่ — เรียงเป็นแนวตรงกันทุกแถวไม่ว่าแท่งจะยาวแค่ไหน ไม่ใช่แปะไว้ในแท่งที่ตำแหน่งขยับไปมา */
+.hbar-num { width: 52px; flex-shrink: 0; text-align: right; font-size: 12px; color: var(--text-main); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* สต็อกจะหมดในกี่วัน (Days of supply) — โชว์ทุกตัวที่เข้าเกณฑ์ทุก process พร้อมกัน (ไม่ตัดเหลือ 4 อันดับแรกแล้ว) เกินความสูงนี้เลื่อนดูแทน กันดันการ์ดข้างๆ ("รายการวิกฤตด่วน") เตี้ยลง */
+.dos-list { max-height: 300px; overflow-y: auto; }
+.dos-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-top: 1px solid var(--border-color); font-size: 12px; gap: 10px; }
+.dos-row:first-of-type { border-top: none; }
+.dos-name { color: var(--text-main); font-weight: 600; }
+.dos-sub { font-size: 10px; color: var(--text-muted); }
+.dos-days { font-size: 13px; font-weight: 700; padding: 3px 10px; border-radius: var(--radius-sm); flex-shrink: 0; }
+
 /* --- Announcements (หน้า Overview) --- */
 .announcements-card {
-    background: var(--btn-primary-soft); border: 1px solid #c7d2fe; border-radius: var(--radius-md);
+    background: var(--btn-primary-soft); border: 1px solid var(--btn-primary); border-radius: var(--radius-md);
     padding: 14px 18px; margin-top: 10px;
 }
 .announcements-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
@@ -182,100 +460,130 @@ body {
 .announcements-header .btn-add { color: var(--btn-primary); width: auto; margin-top: 0; }
 .announcements-header .btn-add:hover { background: #e0e7ff; }
 .announcements-list { display: flex; flex-direction: column; gap: 6px; }
-.announcement-item { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 6px 0; border-bottom: 1px dashed #c7d2fe; font-size: 13px; color: var(--text-main); }
+.announcement-item { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 6px 0; border-bottom: 1px dashed var(--btn-primary); font-size: 13px; color: var(--text-main); }
 .announcement-item:last-child { border-bottom: none; }
 .announcement-text { white-space: pre-wrap; flex: 1; }
+/* ป้ายบอกว่าประกาศนี้ตั้งใจให้เห็นเฉพาะกระบวนการไหน (ไม่มี = ทั่วไป ทุกกระบวนการ) — โชว์เฉพาะที่หน้าแรก ให้ Admin เห็นว่าอันไหนถูกกรองไปโชว์ที่ไหนบ้าง */
+.announcement-proc-tag { display: inline-block; flex-shrink: 0; padding: 1px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 700; background: var(--btn-primary); color: #fff; }
 .announcement-empty { color: var(--text-muted); font-size: 12.5px; padding: 4px 0; }
 .action-btns-inline { display: flex; gap: 2px; flex-shrink: 0; }
 
-/* --- Overview Dashboard Layout --- */
-.overview-container { display: flex; gap: 18px; justify-content: space-between; flex-wrap: wrap; margin-top: 10px; }
-.chart-card {
-    flex: 1; min-width: 320px; background: #ffffff; border-radius: var(--radius-lg); padding: 22px;
-    box-shadow: var(--shadow-sm); border: 1px solid var(--border-color); text-align: center;
-    transition: box-shadow 0.2s ease;
-}
-.chart-card:hover { box-shadow: var(--shadow-md); }
-.chart-card h3 { margin: 0 0 20px 0; font-size: 15px; color: var(--text-main); font-weight: 600; }
-.chart-wrapper { position: relative; margin: 0 auto; height: 220px; width: 220px; }
-.chart-center-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 24px; font-weight: 700; color: var(--btn-primary); display: flex; flex-direction: column; line-height: 1.2; }
-.chart-center-label { font-size: 11px; color: var(--text-secondary); font-weight: 500; }
-.stat-box { margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--border-color); font-size: 13px; color: var(--text-secondary); text-align: left; }
-.stat-box strong { color: var(--text-main); }
+/* การ์ดสรุปในหน้า process (Total M/C วันนี้ ฯลฯ) ใช้คลาส .metric/.summary-grid แทนแล้ว — ดูที่ "แถบสรุปด้านบนของหน้า process" ด้านล่าง */
+.today-stat-value { font-size: 20px; font-weight: 700; color: var(--btn-primary); line-height: 1.2; }
 
-/* --- Stock / Inventory page --- */
-.stock-kpi-row { display: flex; gap: 16px; flex-wrap: wrap; margin: 10px 0 18px 0; }
-.stock-kpi-card {
-    flex: 1; min-width: 180px; background: #fff; border: 1px solid var(--border-color); border-radius: var(--radius-md);
-    padding: 16px 18px; box-shadow: var(--shadow-sm);
-}
-.stock-kpi-label { font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
-.stock-kpi-value { font-size: 26px; font-weight: 700; color: var(--text-main); }
-.stock-kpi-card.warn .stock-kpi-value { color: var(--danger); }
-.stock-kpi-card.good .stock-kpi-value { color: var(--success); }
+/* แผง "รายการที่ต้องดูก่อน" — สรุปรายการ Low/Critical หนักสุดข้ามทุกกลุ่มไว้บนสุด ไม่ต้องไล่เปิดทีละกลุ่ม */
+.stock-alert-title { font-size: 13px; font-weight: 700; color: var(--text-main); margin: 4px 0 8px 2px; display: flex; align-items: center; gap: 6px; }
+.stock-alert-title i { color: var(--danger); }
+.stock-alert-row { display: flex; align-items: center; gap: 14px; padding: 10px 12px; border-radius: var(--radius-sm); margin-bottom: 4px; background: var(--card-bg); border: 1px solid var(--border-color); }
+.stock-alert-row.stock-alert-critical { background: var(--danger-soft); border-color: var(--danger); }
+.stock-alert-model { flex: 1; min-width: 0; }
+.stock-alert-model-name { font-weight: 700; font-size: 14.5px; color: var(--text-main); }
+.stock-alert-model-group { font-size: 12px; color: var(--text-secondary); }
+.stock-alert-stock { width: 90px; text-align: right; font-weight: 600; font-size: 13px; color: var(--text-main); }
+.stock-alert-balance { width: 90px; text-align: right; font-weight: 700; font-size: 13px; color: var(--danger); }
+.stock-alert-status { width: 100px; text-align: right; font-weight: 600; font-size: 13px; color: var(--danger); }
+.stock-alert-row:not(.stock-alert-critical) .stock-alert-status { color: var(--weekend-head-text); }
+/* แผง "รายการที่ต้องดูก่อน" อยู่ในคอลัมน์ขวาของหน้า Home — ใส่กรอบแบบ .panel ให้เข้าชุดกับแผงอื่น */
+#stockAlertPanel { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 16px 18px; }
+#stockAlertPanel .stock-alert-title { font-size: 13px; color: var(--text-secondary); margin: 0 0 12px; }
+#stockAlertPanel .stock-alert-row { gap: 10px; padding: 9px 11px; }
+#stockAlertPanel .stock-alert-model-name { font-size: 13.5px; }
+#stockAlertPanel .stock-alert-stock, #stockAlertPanel .stock-alert-balance { width: 74px; font-size: 13px; }
+#stockAlertPanel .stock-alert-status { width: 60px; font-size: 12.5px; }
 
 input.stock-input {
     width: 90px; border: 1px solid var(--border-strong); border-radius: 6px; padding: 6px; text-align: center;
     font-size: 14px; font-weight: 600; font-family: inherit; color: var(--text-main);
 }
 input.stock-input:not([readonly]):hover, input.stock-input:not([readonly]):focus { border-color: var(--btn-primary); background: var(--btn-primary-soft); outline: none; }
-input.stock-input[readonly] { background: #f9fafb; cursor: not-allowed; }
+input.stock-input[readonly] { background: var(--header-bg); cursor: not-allowed; }
 
+/* สีมาจาก inline style ตาม daysSupplyStyle() เสมอ (เกณฑ์เดียวกับ panel "Days of supply" ที่หน้าแรก) ไม่ได้ผูกกับ status-* class แบบเดิมแล้ว */
 .stock-badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; }
-.stock-badge.status-normal { background: #f0fdf4; color: var(--success); }
-.stock-badge.status-low { background: #fffbeb; color: #b45309; }
-.stock-badge.status-critical { background: #fef2f2; color: var(--danger); }
-.stock-badge.status-excess { background: var(--btn-primary-soft); color: var(--btn-primary); }
 .stock-balance-negative { color: var(--danger); font-weight: 700; }
 .stock-updated-stale { color: var(--danger); font-weight: 600; }
 .chain-toggle-btn { border: none; background: transparent; color: var(--text-muted); cursor: pointer; padding: 2px 6px; margin-left: 4px; border-radius: var(--radius-sm); font-size: 12px; vertical-align: middle; }
-.chain-toggle-btn:hover { background: #f3f4f6; color: var(--btn-primary); }
-tr.stock-chain-row td { background: #fafafa; padding: 12px 16px; }
+.chain-toggle-btn:hover { background: var(--header-bg); color: var(--btn-primary); }
+tr.stock-chain-row td { background: var(--header-bg); padding: 12px 16px; }
 .stock-chain-panel { display: flex; justify-content: flex-start; }
 .stock-chain-boxes { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.chain-box { background: #fff; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 8px 14px; min-width: 110px; text-align: center; }
+.chain-box { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 8px 14px; min-width: 110px; text-align: center; }
 .chain-box-proc { font-size: 10px; color: var(--text-muted); text-transform: uppercase; }
 .chain-box-model { font-size: 13px; font-weight: 600; color: var(--text-main); margin: 2px 0; }
 .chain-box-stat { font-size: 11px; color: var(--text-secondary); }
 .chain-arrow { display: flex; flex-direction: column; align-items: center; color: var(--text-muted); font-size: 13px; gap: 2px; }
 .chain-ratio { font-size: 10px; font-weight: 600; color: var(--btn-primary); }
 .bom-table td { vertical-align: middle; }
-.bom-row-unmapped { background: #fffbeb; }
-.bom-row-stale { background: #fef2f2; }
-.bom-source-select { width: 100%; padding: 6px 8px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); font-family: inherit; font-size: 13px; }
+.bom-table td:nth-child(3) { max-width: 220px; }
+.bom-row-unmapped { background: var(--warning-soft); }
+.bom-row-stale { background: var(--danger-soft); }
+.bom-source-select { width: 100%; min-width: 0; padding: 6px 8px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); font-family: inherit; font-size: 13px; }
 .bom-ratio-input { padding: 6px 8px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); font-family: inherit; font-size: 13px; }
-.bom-copy-btn { flex-shrink: 0; border: 1px solid var(--border-strong); background: #fff; color: var(--text-secondary); border-radius: var(--radius-sm); padding: 6px 9px; cursor: pointer; font-size: 12px; }
-.bom-copy-btn:hover { background: #f3f4f6; color: var(--btn-primary); }
-.stock-group-header { cursor: pointer; background: #f9fafb; }
-.stock-group-header:hover { background: #f3f4f6; }
+.bom-copy-btn { flex-shrink: 0; border: 1px solid var(--border-strong); background: var(--card-bg); color: var(--text-secondary); border-radius: var(--radius-sm); padding: 6px 9px; cursor: pointer; font-size: 12px; }
+.bom-copy-btn:hover { background: var(--header-bg); color: var(--btn-primary); }
+.stock-group-header { cursor: pointer; background: var(--header-bg); }
+.stock-group-header:hover { background: var(--header-bg); }
 .stock-group-header td { padding: 10px 16px; text-align: left; }
 .stock-group-header .fa-chevron-down, .stock-group-header .fa-chevron-right { width: 12px; color: var(--text-muted); margin-right: 8px; }
-.stock-group-header.has-problems { background: #fef2f2; }
+.stock-group-header.has-problems { background: var(--danger-soft); }
 .stock-group-header.has-problems:hover { background: #fee2e2; }
-.stock-group-proc { display: inline-block; font-size: 11px; color: var(--text-secondary); background: #eef2ff; padding: 2px 8px; border-radius: 999px; margin-right: 8px; }
+.stock-group-proc { display: inline-block; font-size: 12px; color: var(--text-secondary); background: var(--btn-primary-soft); padding: 2px 8px; border-radius: 999px; margin-right: 8px; }
 .stock-group-meta { font-size: 12px; color: var(--text-secondary); margin-left: 10px; font-weight: 400; }
-#stockProblemsOnlyBtn { background: #fff; border: 1px solid var(--border-strong); padding: 7px 14px; border-radius: var(--radius-sm); }
+.stock-select-cb { margin-right: 8px; vertical-align: middle; cursor: pointer; width: 15px; height: 15px; }
+
+/* แถบเลือกหลาย Model พร้อมกัน (Admin) — โผล่มาเมื่อมีการเลือกอย่างน้อย 1 ตัว ไว้ลบ/เคลียร์ข้อมูลสต็อกทีเดียวหลายตัว */
+.stock-bulk-bar { display: flex; justify-content: space-between; align-items: center; background: var(--btn-primary-soft); border: 1px solid var(--btn-primary); border-radius: var(--radius-md); padding: 10px 16px; margin-bottom: 14px; font-size: 13px; color: var(--text-main); font-weight: 600; }
+/* โทนแดงอ่อนไว้ตั้งแต่ยังไม่กด กันคนมองข้ามปุ่มนี้ไป แล้วเข้มขึ้นเป็นแดงเต็มตอนกดเปิดใช้งาน */
+#stockProblemsOnlyBtn { background: var(--danger-soft); color: var(--danger); border: 1px solid var(--danger); padding: 7px 14px; border-radius: var(--radius-sm); font-weight: 600; }
+#stockProblemsOnlyBtn:hover { background: #fee2e2; border-color: var(--danger); }
 #stockProblemsOnlyBtn.active { background: var(--danger); color: #fff; border-color: var(--danger); }
+
+/* ปุ่ม "ซ่อน Model ว่าง" — ย้ายออกมานอกเมนู ⋮ เพราะเป็น toggle ที่มีสถานะเปิด/ปิดค้างไว้ ซ่อนในเมนูแล้วลืมว่าเปิดอยู่หรือเปล่า
+   ใช้โทนเดียวกับ #stockProblemsOnlyBtn: อ่อนไว้ปกติ กันมองข้าม เข้มเต็มตอนเปิดใช้งานจริง */
+.btn-toggle-visible { display: flex; align-items: center; gap: 6px; background: var(--btn-primary-soft); color: var(--btn-primary); border: 1px solid var(--btn-primary); padding: 7px 14px; border-radius: var(--radius-sm); font-weight: 600; font-family: inherit; font-size: 13px; cursor: pointer; transition: 0.15s; }
+.btn-toggle-visible:hover { background: #dbe4ff; }
+.btn-toggle-visible.active { background: var(--btn-primary); color: #fff; }
 
 /* --- Table Layout --- */
 .table-container { display: none; }
-.table-responsive { overflow-x: auto; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: white; }
+/* เลื่อนได้ 2 แกนในกล่องเดียว (แนวนอนดูวันที่เยอะๆ + แนวตั้งดู Model เยอะๆ) — ส่วนหัวตาราง/แถว Hrs/Day ลอยค้าง
+   ด้านบนตอนเลื่อนลงคุมด้วย JS (ดู syncVerticalSticky ใน app.js) แทน CSS position:sticky ล้วนๆ เพราะเจอว่า
+   ถ้า overflow-x และ overflow-y ไม่ใช่ visible พร้อมกันบน element เดียว (หรือ parent-child ที่ต้อง "ทะลุผ่าน" กัน)
+   position:sticky แนวตั้งจะใช้ไม่ได้เลยใน browser ที่ทดสอบ (เป็นข้อจำกัดของ spec overflow ไม่ใช่บั๊กเขียนโค้ดผิด) */
+.table-responsive { overflow: auto; max-height: 72vh; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: var(--card-bg); }
 table { width: 100%; border-collapse: separate; border-spacing: 0; text-align: center; }
 th, td { border-right: 1px solid #f1f2f4; border-bottom: 1px solid #f1f2f4; padding: 9px 6px; vertical-align: middle; }
 th:last-child, td:last-child { border-right: none; }
 tr:last-child td { border-bottom: none; }
-th { background-color: var(--header-bg); font-weight: 600; color: var(--text-secondary); font-size: 12.5px; border-bottom: 1px solid var(--border-strong); text-transform: uppercase; letter-spacing: 0.02em; position: sticky; top: 0; z-index: 10; }
-th:first-child, th:nth-child(2) { z-index: 15; }
+/* เอาเส้นคั่นแนวนอนระหว่างแถว Model ในกลุ่มเดียวกันออก ให้ดูโปร่งขึ้น (เส้นคั่นก่อนแถว Total ยังพอเห็นได้จากพื้นหลังสีที่เปลี่ยนอยู่แล้ว) */
+.row-even td, .row-odd td { border-bottom: none; }
+th { background-color: var(--header-bg); font-weight: 600; color: var(--text-secondary); font-size: 12.5px; border-bottom: 1px solid var(--border-strong); text-transform: uppercase; letter-spacing: 0.02em; position: relative; z-index: 10; }
+th:first-child, th:nth-child(2) { position: sticky; left: 0; z-index: 15; }
 
 /* Sticky ซ้าย: คอลัมน์กลุ่ม + ชื่อ Model ลอยค้างเวลาเลื่อนแนวนอน (สำคัญมากตอนดู 1 Month ที่คอลัมน์เยอะ) */
-.col-group { font-weight: 600; background-color: #fafbfc; color: var(--text-secondary); font-size: 12.5px; position: sticky; left: 0; z-index: 5; }
-.col-model { text-align: left; font-weight: 500; position: sticky; z-index: 4; color: var(--text-main); background-color: #fff; }
-.model-variant-badge { display: inline-block; margin-left: 5px; padding: 1px 6px; border-radius: 999px; font-size: 10px; font-weight: 600; background: #f3f4f6; color: var(--text-secondary); vertical-align: middle; }
+.col-group { font-weight: 600; background-color: var(--header-bg); color: var(--text-secondary); font-size: 12.5px; position: sticky; left: 0; z-index: 5; }
+.col-model { text-align: left; font-weight: 500; position: sticky; z-index: 4; color: var(--text-main); background-color: var(--card-bg); }
+.model-variant-badge { display: inline-block; margin-left: 5px; padding: 2px 7px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--header-bg); color: var(--text-secondary); vertical-align: middle; }
 .total-row td:first-child, .hrs-row td:first-child { position: sticky; left: 0; z-index: 6; }
 
-/* คอลัมน์ "วันนี้" — เอาพื้นหลัง/สีม่วงไฮไลต์ออกแล้ว เหลือแค่ป้าย "วันนี้" บอกตำแหน่งเฉยๆ */
-.today-badge { display: block; font-size: 9px; font-weight: 700; color: var(--text-secondary); text-transform: none; letter-spacing: 0; margin-top: 1px; }
+/* จุดจับลากจัดลำดับ Model — จับเฉพาะ handle นี้ ไม่ใช่ทั้งแถว กันไปชนกับคลิกปุ่ม/เลือกข้อความปกติ */
+.drag-handle { display: inline-block; cursor: grab; color: var(--text-muted); margin-right: 5px; opacity: 0.4; vertical-align: middle; }
+.drag-handle:hover { opacity: 1; }
+.drag-handle:active { cursor: grabbing; }
+tr.drag-over td { background-color: var(--btn-primary-soft) !important; }
 
+/* ธงด่วน (Urgent) ต่อ Model — badge สีแดงติดถาวรตอนติดธง (โชว์ทั้งจอปกติและตอนพิมพ์/PDF เพราะ "ด่วน" ที่ยังพอเห็นความหมายได้ในโทนไม่มีสีด้วยตัวอักษร) ส่วนไอคอนจางๆ ให้ Admin กดติดธงมีแค่ตอนยังไม่ได้ติด */
+.urgent-flag-btn { display: inline-flex; margin-right: 5px; color: var(--border-strong); opacity: 0.4; cursor: pointer; vertical-align: middle; font-size: 12px; }
+.urgent-flag-btn:hover { opacity: 1; color: var(--danger); }
+.urgent-badge-text { display: inline-flex; align-items: center; gap: 3px; margin-right: 5px; padding: 2px 7px; border-radius: 999px; font-size: 11px; font-weight: 700; background: var(--danger-soft); color: var(--danger); vertical-align: middle; }
+tr.row-urgent td:not(.col-group) { background-color: var(--danger-soft) !important; }
+
+/* คอลัมน์ "วันนี้" — เอาพื้นหลัง/สีม่วงไฮไลต์ออกแล้ว เหลือแค่ป้าย "วันนี้" บอกตำแหน่งเฉยๆ */
+.today-badge { display: block; font-size: 10px; font-weight: 700; color: var(--text-secondary); text-transform: none; letter-spacing: 0; margin-top: 1px; }
+
+/* ค่าเริ่มต้นของ input/select/textarea ปกติ browser จะใช้พื้นขาวเสมอไม่ว่าธีมหน้าเว็บจะมืดแค่ไหน (ไม่ auto ตาม CSS variable ให้เอง)
+   ตั้งค่า default ที่นี่จุดเดียวให้ทุกช่องกรอกทั่วแอปเป็นสีตามธีม กัน "ช่องขาวโพลนกลางแอปมืด" หลุดไปเรื่อยๆ ทุกจุดที่ลืมเซ็ต — จุดที่ตั้งใจให้มีพื้นหลังอื่นอยู่แล้ว (เช่นปุ่ม toggle ที่ active) ยัง override ทับได้ตามปกติเพราะ specificity สูงกว่า */
+input, select, textarea { background: var(--card-bg); color: var(--text-main); }
 input[type="number"], input[type="text"] { font-family: inherit; }
 input[type="number"].table-input, input[type="text"].cover-input {
     width: 100%; min-width: 40px; border: 1px solid transparent; padding: 6px 2px; text-align: center;
@@ -287,32 +595,37 @@ input.cover-input:not([readonly]):hover, input.cover-input:not([readonly]):focus
     border-color: var(--btn-primary); background: var(--btn-primary-soft); outline: none;
 }
 input[readonly] { cursor: not-allowed; color: var(--text-main); font-weight: 500; }
-input::placeholder { color: #d1d5db; text-align: center; font-weight: 400; }
+input::placeholder { color: var(--border-strong); text-align: center; font-weight: 400; }
 /* ตัวเลขที่กรอกแล้วให้เด่นชัดกว่าช่องว่าง ("-") ช่วยให้กวาดสายตาหาช่องที่มีข้อมูลได้ง่ายขึ้น */
 input.table-input:not(:placeholder-shown) { font-size: 15px; font-weight: 700; color: var(--text-main); }
+/* ไฮไลต์ช่องที่มีคนอื่นแก้ค่าเข้ามาใหม่จาก poll รอบล่าสุด — จางหายไปเองหลัง 2.5 วิ ไม่ต้องเปิดกระดิ่งดูก็รู้ว่ามีอัปเดตสดๆ ตรงไหนบ้าง */
+@keyframes cellFlash { 0% { background: var(--btn-primary-soft); box-shadow: 0 0 0 2px var(--btn-primary); } 100% { background: transparent; box-shadow: 0 0 0 0 transparent; } }
+input.table-input.cell-flash { animation: cellFlash 2.5s ease-out; }
+/* ลากคลุมหลายช่องแบบ Excel — ไฮไลต์สีฟ้าให้เห็นชัดว่าเลือกอะไรอยู่บ้าง ก่อน Ctrl+C ไปวางที่วันอื่น */
+input.table-input.cell-selected { background: var(--btn-primary-soft) !important; box-shadow: inset 0 0 0 2px var(--btn-primary); }
 input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 
 .cover-color-picker { width: 18px; height: 18px; border: none; padding: 0; cursor: pointer; background: none; border-radius: 4px; }
 
-.cell-pcs-text { display: block; font-size: 9.5px; color: var(--text-muted); font-weight: 400; margin-top: 1px; }
+.cell-pcs-text { display: block; font-size: 10.5px; color: var(--text-muted); font-weight: 400; margin-top: 1px; }
 
 /* คอมเมนต์ประจำช่อง (แบบ note ใน Excel) */
 .val-cell, .tot-cell { position: relative; }
-.comment-dot { position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; border-radius: 50%; background: #d1d5db; cursor: pointer; transition: transform 0.15s; }
+.comment-dot { position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; border-radius: 50%; background: var(--border-strong); cursor: pointer; transition: transform 0.15s; }
 .comment-dot:hover { transform: scale(1.6); }
 .comment-dot.has-comment { background: #f59e0b; }
-.cell-comment-text { display: block; font-size: 8.5px; color: #b45309; font-style: italic; margin-top: 1px; white-space: normal; word-break: break-word; line-height: 1.3; }
+.cell-comment-text { display: block; font-size: 10px; color: var(--weekend-head-text); font-style: italic; margin-top: 1px; white-space: normal; word-break: break-word; line-height: 1.3; }
 
-.row-odd td:not(.col-group):not(.weekend-cell) { background-color: #fbfcfd; }
+.row-odd td:not(.col-group):not(.weekend-cell) { background-color: var(--header-bg); }
 
-.param-box { margin-top: 10px; font-size: 11px; background: #f9fafb; padding: 8px; border-radius: var(--radius-sm); text-align: left; border: 1px solid var(--border-color); }
+.param-box { margin-top: 10px; font-size: 11px; background: var(--header-bg); padding: 8px; border-radius: var(--radius-sm); text-align: left; border: 1px solid var(--border-color); }
 .param-box label { display: inline-block; width: 45px; font-weight: 500; color: var(--text-secondary); }
-.param-box input { width: 50px; border: 1px solid var(--border-strong); border-radius: 4px; font-size: 11px; text-align: center; padding: 2px; margin-bottom: 3px; background: white; }
-.param-box-view { margin-top: 10px; font-size: 11px; background: #f9fafb; padding: 8px; border-radius: var(--radius-sm); text-align: left; color: var(--text-secondary); }
+.param-box input { width: 50px; border: 1px solid var(--border-strong); border-radius: 4px; font-size: 11px; text-align: center; padding: 2px; margin-bottom: 3px; background: var(--card-bg); }
+.param-box-view { margin-top: 10px; font-size: 11px; background: var(--header-bg); padding: 8px; border-radius: var(--radius-sm); text-align: left; color: var(--text-secondary); }
 .pcs-text { font-size: 11.5px; color: var(--btn-primary); font-weight: 600; display: block; margin-top: 2px; }
 
-.hrs-row td { background-color: #f9fafb; color: var(--text-main); font-weight: 600; border-top: 1px solid var(--border-strong); }
-.hrs-row input { background-color: #ffffff; border: 1px solid var(--border-strong); font-weight: 600; color: var(--btn-primary); }
+.hrs-row td { background-color: var(--header-bg); color: var(--text-main); font-weight: 600; border-top: 1px solid var(--border-strong); position: relative; z-index: 9; }
+.hrs-row input { background-color: var(--card-bg); border: 1px solid var(--border-strong); font-weight: 600; color: var(--btn-primary); }
 
 .row-total td { background-color: var(--total-std); font-weight: 600; color: var(--total-std-text); }
 .row-total td:first-child { border-left: 3px solid var(--total-std-text); }
@@ -320,6 +633,11 @@ input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer
 .row-total-dg1 td:first-child { border-left: 3px solid var(--total-dg1-text); }
 .row-grand-total td { background-color: var(--grand-total) !important; font-weight: 700; color: var(--grand-total-text); font-size: 13.5px; }
 .row-grand-total td:first-child { border-left: 3px solid var(--grand-total-text); }
+/* กรอบรอบแถว Total ทุกแบบ — ใช้ selector "tr.xxx td" เจาะจงพอที่จะชนะ tr:last-child td { border-bottom:none } เดิม
+   (แถว Total มักเป็นแถวสุดท้ายของ tbody กลุ่มนั้นอยู่แล้ว ไม่งั้นเส้นล่างจะหายไปเงียบๆ) */
+tr.row-total td { border-top: 1px solid var(--total-std-text); border-bottom: 1px solid var(--total-std-text); }
+tr.row-total-dg1 td { border-top: 1px solid var(--total-dg1-text); border-bottom: 1px solid var(--total-dg1-text); }
+tr.row-grand-total td { border-top: 1px solid var(--grand-total-text); border-bottom: 1px solid var(--grand-total-text); }
 
 .weekend-header { background-color: var(--weekend-head) !important; color: var(--weekend-head-text) !important; }
 .weekend-cell { background-color: var(--weekend-cell) !important; }
@@ -331,8 +649,8 @@ tr:hover .action-btns { opacity: 1; }
 .btn-edit { color: var(--btn-primary); }
 
 .btn-add { color: var(--success); width: 100%; text-align: left; margin-top: 4px; padding: 6px 10px; border-radius: 6px; transition: 0.2s; }
-.btn-add:hover { background-color: #f0fdf4; }
-.btn-edit-type { color: var(--btn-primary); border: 1px solid #c7d2fe; padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-top: 6px; background: var(--btn-primary-soft); width: 100%; }
+.btn-add:hover { background-color: var(--success-soft); }
+.btn-edit-type { color: var(--btn-primary); border: 1px solid var(--border-strong); padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-top: 6px; background: var(--btn-primary-soft); width: 100%; }
 .btn-edit-type:hover { background: var(--btn-primary); color: white; }
 
 .tot-cell { text-align: center; }
@@ -356,28 +674,82 @@ tr:hover .action-btns { opacity: 1; }
     align-items: center; justify-content: center; z-index: 4000; padding: 20px;
 }
 .modal-box {
-    background: #fff; border-radius: var(--radius-lg); padding: 24px; width: 100%; max-width: 380px;
+    background: var(--card-bg); border-radius: var(--radius-lg); padding: 24px; width: 100%; max-width: 380px;
     box-shadow: var(--shadow-md); animation: modalIn 0.15s ease-out; border: 1px solid var(--border-color);
 }
 @keyframes modalIn { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: scale(1); } }
 .modal-box h3 { margin: 0 0 14px 0; font-size: 15px; color: var(--text-main); font-weight: 600; }
+.modal-preview-list {
+    max-height: 160px; overflow-y: auto; margin: -6px 0 16px; padding: 8px 10px; background: var(--header-bg);
+    border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 12px; color: var(--text-secondary);
+}
+.modal-preview-list div { padding: 2px 0; }
 .modal-box input[type="text"], .modal-box input[type="password"] {
     width: 100%; padding: 10px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
     font-family: inherit; font-size: 14px; outline: none; margin-bottom: 16px; box-sizing: border-box;
+    background: var(--card-bg); color: var(--text-main);
 }
 .modal-box input:focus { border-color: var(--btn-primary); }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .modal-btn { padding: 8px 16px; border-radius: var(--radius-sm); border: none; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; transition: 0.15s; }
-.modal-btn-cancel { background: #f3f4f6; color: var(--text-secondary); }
-.modal-btn-cancel:hover { background: #e5e7eb; }
+.modal-btn-cancel { background: var(--header-bg); color: var(--text-secondary); }
+.modal-btn-cancel:hover { background: var(--border-color); }
 .modal-btn-confirm { background: var(--btn-primary); color: #fff; }
 .modal-btn-confirm:hover { background: var(--btn-primary-dark); }
 .modal-btn-danger { background: var(--danger); color: #fff; }
 .modal-box-wide { max-width: 560px; }
+.modal-box.autoplan-box { max-width: 920px; }
+.autoplan-table th, .autoplan-table td { text-align: center; white-space: nowrap; padding: 6px 8px; }
+.autoplan-pcs { font-size: 10px; color: var(--text-muted); }
+.autoplan-old { font-size: 10px; color: var(--weekend-head-text); }
+.autoplan-opts { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; margin-bottom: 8px; color: var(--text-main); }
+.autoplan-note { font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; }
+.autoplan-warn { background: var(--warning-soft); border: 1px solid #fde68a; color: var(--weekend-head-text); border-radius: var(--radius-sm); padding: 8px 12px; font-size: 12px; margin-bottom: 8px; max-height: 120px; overflow-y: auto; }
+
+/* --- กรอกจากใบนับสต็อก --- */
+.count-entry-overlay { z-index: 3500; }
+.count-entry-box {
+    background: var(--card-bg); border-radius: var(--radius-lg); border: 1px solid var(--border-color); box-shadow: var(--shadow-md);
+    width: 100%; max-width: 760px; max-height: calc(100vh - 40px); display: flex; flex-direction: column; overflow: hidden;
+    animation: modalIn 0.15s ease-out;
+}
+.ce-head { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 14px 18px; border-bottom: 1px solid var(--border-color); flex-wrap: wrap; }
+.ce-title { font-weight: 700; font-size: 15px; color: var(--text-main); }
+.ce-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+.ce-sub .kbd { border: 1px solid var(--border-color); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; font-size: 11px; background: var(--header-bg); margin: 0 1px; }
+.ce-progress { display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.ce-bar { width: 140px; height: 8px; background: var(--border-color); border-radius: 99px; overflow: hidden; }
+.ce-bar i { display: block; height: 100%; width: 0; background: var(--success); transition: width .15s; }
+.ce-table-wrap { overflow: auto; flex: 1; }
+.ce-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ce-table th { position: sticky; top: 0; background: var(--header-bg); color: var(--text-secondary); font-weight: 600; font-size: 11.5px; text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border-color); z-index: 1; }
+.ce-table td { padding: 5px 12px; border-bottom: 1px solid var(--border-color); color: var(--text-main); }
+.ce-table tr.ce-grp td { background: var(--header-bg); font-weight: 700; font-size: 12px; color: var(--text-secondary); }
+.ce-table tr.ce-cur td { background: var(--btn-primary-soft); }
+.ce-code { font-family: Consolas, monospace; font-weight: 700; color: var(--btn-primary); width: 56px; white-space: nowrap; }
+.ce-foot .modal-btn:disabled { opacity: .45; cursor: not-allowed; }
+.ce-num { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-secondary); width: 100px; }
+.ce-inp {
+    width: 110px; padding: 6px 8px; border: 1px solid var(--border-strong); border-radius: 6px; text-align: right; font-size: 14px;
+    font-family: inherit; font-variant-numeric: tabular-nums; background: var(--card-bg); color: var(--text-main); outline: none;
+}
+.ce-inp:focus { border: 2px solid var(--btn-primary); padding: 5px 7px; }
+.ce-inp.done { background: var(--success-soft); }
+.ce-inp.odd { background: var(--warning-soft); border-color: #f59e0b; }
+.ce-inp.bad { background: var(--danger-soft); border-color: var(--danger); }
+.ce-diff { font-size: 12px; white-space: nowrap; }
+.ce-thumb { padding: 2px 8px !important; }
+.ce-thumb img { display: block; height: 34px; border: 1px solid var(--border-color); border-radius: 4px; background: #fff; }
+.ce-scan-note { color: var(--btn-primary); font-weight: 500; }
+.ce-d { color: var(--text-secondary); font-weight: 600; font-variant-numeric: tabular-nums; }
+.ce-chip { font-size: 11px; padding: 2px 8px; border-radius: 99px; background: var(--warning-soft); color: var(--weekend-head-text); font-weight: 600; }
+.ce-chip.bad { background: var(--danger-soft); color: var(--danger); }
+.ce-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 18px; border-top: 1px solid var(--border-color); flex-wrap: wrap; }
+.ce-warn { font-size: 12px; color: var(--weekend-head-text); }
 .user-mgmt-table { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 13px; }
 .user-mgmt-table th, .user-mgmt-table td { padding: 8px 10px; border-bottom: 1px solid var(--border-color); text-align: left; }
-.user-mgmt-table .role-badge { padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; background: #eef2ff; color: var(--btn-primary); }
-.user-mgmt-table .role-badge.role-admin { background: #fef3c7; color: #b45309; }
+.user-mgmt-table .role-badge { padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; background: var(--btn-primary-soft); color: var(--btn-primary); }
+.user-mgmt-table .role-badge.role-admin { background: var(--warning-soft); color: var(--weekend-head-text); }
 .user-mgmt-form { display: flex; flex-direction: column; gap: 10px; padding-top: 6px; border-top: 1px solid var(--border-color); }
 .user-mgmt-form .field-row { display: flex; gap: 10px; }
 .user-mgmt-form input[type="text"], .user-mgmt-form input[type="password"] { margin-bottom: 0 !important; }
@@ -395,20 +767,22 @@ tr:hover .action-btns { opacity: 1; }
 .print-preview-footer { padding: 12px 20px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 8px; }
 
 /* จำลองสไตล์ print แบบเดียวกับ @media print ด้วยล่างนี้ ใช้กับหน้า preview ในหน้าจอปกติ (ผ่าน iframe ?forcePrintPreview=1) */
+.print-preview-active .app-sidebar, .print-preview-active .sidebar-toggle,
 .print-preview-active .tabs-container, .print-preview-active .no-print, .print-preview-active .controls-area { display: none !important; }
+.print-preview-active .app-main { padding: 0 !important; }
 .print-preview-active .dashboard-container { box-shadow: none; padding: 0; margin: 0; border-radius: 0; border: none; }
-.print-preview-active .table-responsive { border-radius: 0; border: 1px solid #000; }
+.print-preview-active .table-responsive { border-radius: 0; border: 1px solid var(--border-color); max-height: none; overflow: visible; }
 .print-preview-active table { font-size: 11px; border-collapse: collapse; }
-.print-preview-active th, .print-preview-active td { padding: 4px 2px; border: 1px solid #000 !important; }
-.print-preview-active th, .print-preview-active .col-group, .print-preview-active .col-model, .print-preview-active .total-row td:first-child, .print-preview-active .hrs-row td:first-child { position: static !important; }
+.print-preview-active th, .print-preview-active td { padding: 4px 2px; }
+/* บนกระดาษ เส้นสีอ่อนแบบจอปกติจางเกินไป พนักงานแยกแถว/คอลัมน์ไม่ออก — ใช้เส้นเทาเข้มที่เห็นชัดแทน ทั้งแนวตั้ง-แนวนอน รวมถึงระหว่างแถว Model ด้วย */
+.print-preview-active th, .print-preview-active td { border-right: 1px solid #6b7280; border-bottom: 1px solid #6b7280; }
+.print-preview-active .row-even td, .print-preview-active .row-odd td { border-bottom: 1px solid #6b7280; }
+.print-preview-active th, .print-preview-active .col-group, .print-preview-active .col-model, .print-preview-active .total-row td:first-child, .print-preview-active .hrs-row td { position: static !important; }
 .print-preview-active input.table-input, .print-preview-active input.cover-input { border: none; padding: 0; font-size: 11px; background: transparent; color: #000; }
 .print-preview-active .cell-pcs-text { font-size: 9px; margin-top: 0; }
 .print-preview-active .comment-dot { display: none !important; }
 .print-preview-active .cell-comment-text { font-size: 8px; }
 .print-preview-active .hide-on-print { display: none !important; }
-.print-preview-active .overview-container { display: flex; flex-direction: row; gap: 10px; flex-wrap: nowrap; }
-.print-preview-active .chart-card { border: 1px solid #000; box-shadow: none; padding: 10px; min-width: auto; }
-.print-preview-active .chart-wrapper { height: 180px; width: 180px; }
 .print-preview-active body { background: white; }
 
 /* --- PRINT STYLES --- */
@@ -417,25 +791,27 @@ tr:hover .action-btns { opacity: 1; }
     body { background: white; padding: 0; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     /* body.zoom ถูกคำนวณและตั้งค่าแบบไดนามิกด้วย JS (ดู fitPrintToPage ใน app.js) ให้พอดีกับ 1 หน้า A4 เสมอ ไม่ว่าจะเหลือกี่แถวหลังซ่อน Model ที่ไม่มีข้อมูล */
     .dashboard-container { box-shadow: none; padding: 0; margin: 0; border-radius: 0; border: none; }
-    .tabs-container, .no-print, .controls-area { display: none !important; }
-    .print-only-header { display: block; text-align: center; margin-bottom: 10px; }
+    .app-sidebar, .sidebar-toggle, .tabs-container, .no-print, .controls-area { display: none !important; }
+    .app-main { padding: 0 !important; }
+    .print-only-header { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 10px; }
+    .print-header-logo { height: 34px; width: auto; }
+    .print-header-text { text-align: left; }
     .print-only-header h2 { margin: 0; font-size: 18px; color: var(--text-main); }
     .print-only-header p { margin: 2px 0 0 0; font-size: 12px; color: var(--text-secondary); }
 
-    .table-responsive { border-radius: 0; border: 1px solid #000; }
+    .table-responsive { border-radius: 0; border: 1px solid var(--border-color); max-height: none; overflow: visible; }
     table { font-size: 11px; border-collapse: collapse; }
-    th, td { padding: 4px 2px; border: 1px solid #000 !important; }
+    th, td { padding: 4px 2px; }
+    /* บนกระดาษ เส้นสีอ่อนแบบจอปกติจางเกินไป พนักงานแยกแถว/คอลัมน์ไม่ออก — ใช้เส้นเทาเข้มที่เห็นชัดแทน ทั้งแนวตั้ง-แนวนอน รวมถึงระหว่างแถว Model ด้วย */
+    th, td { border-right: 1px solid #6b7280; border-bottom: 1px solid #6b7280; }
+    .row-even td, .row-odd td { border-bottom: 1px solid #6b7280; }
     /* ปิด sticky ตอนพิมพ์ — ไม่มีประโยชน์บนกระดาษและอาจทำให้จัดหน้าเพี้ยน */
-    th, .col-group, .col-model, .total-row td:first-child, .hrs-row td:first-child { position: static !important; }
+    th, .col-group, .col-model, .total-row td:first-child, .hrs-row td { position: static !important; }
     input.table-input, input.cover-input { border: none; padding: 0; font-size: 11px; background: transparent; color: #000; }
     .cell-pcs-text { font-size: 9px; margin-top: 0; }
     .comment-dot { display: none !important; }
     .cell-comment-text { font-size: 8px; }
     .hide-on-print { display: none !important; }
-
-    .overview-container { display: flex; flex-direction: row; gap: 10px; flex-wrap: nowrap; }
-    .chart-card { border: 1px solid #000; box-shadow: none; padding: 10px; min-width: auto; }
-    .chart-wrapper { height: 180px; width: 180px; }
 }
 
 /* --- Responsive tweaks --- */
@@ -445,7 +821,11 @@ tr:hover .action-btns { opacity: 1; }
     .header-section { flex-direction: column; align-items: flex-start; }
     .controls-area { width: 100%; }
     .editor-name-input, .date-picker { width: 100%; }
-    .overview-container { flex-direction: column; }
+    .home-grid, .home-row2, .summary-grid { grid-template-columns: 1fr; }
+    /* จอแคบ: คอลัมน์ตัวเลข (สต็อก/คงเหลือ/สถานะ) ความกว้างคงที่รวมกันแล้วเหลือที่ให้ชื่อ Model น้อยเกินไป พอชื่อยาวจนขึ้นบรรทัดใหม่ ตัวเลขข้างๆ จะทับกัน — ให้สลับมาเรียงเป็น 2 แถวแทน (ชื่อ Model เต็มแถวบน, ตัวเลขอยู่แถวล่างเรียงติดกันแทน) */
+    .stock-alert-row { flex-wrap: wrap; }
+    .stock-alert-model { flex-basis: 100%; }
+    .stock-alert-stock, .stock-alert-balance, .stock-alert-status { width: auto; flex: 1; margin-top: 4px; }
 }
 
 /* --- โหมดจอรวม/ทีวี (Kiosk mode) — ตัวหนังสือใหญ่ อ่านง่ายจากระยะไกล สลับ process อัตโนมัติ --- */
@@ -456,18 +836,51 @@ tr:hover .action-btns { opacity: 1; }
 }
 body.kiosk-mode .kiosk-exit-btn { display: flex; }
 body.kiosk-mode { padding: 0; background: #000; }
+body.kiosk-mode .app-sidebar, body.kiosk-mode .sidebar-toggle,
 body.kiosk-mode .tabs-container, body.kiosk-mode .controls-area { display: none !important; }
+body.kiosk-mode .app-main { padding: 0; }
 body.kiosk-mode .dashboard-container { max-width: 100%; margin: 0; border-radius: 0; border: none; box-shadow: none; min-height: 100vh; padding: 40px; }
+/* ตารางปกติมี max-height + scroll ในตัวเอง (.table-responsive) ต้องปลดออกตอนจอรวม ไม่งั้น fitKioskToScreen() วัดความสูงจริงของเนื้อหาไม่ได้ ย่อจอให้พอดีไม่ได้ */
+body.kiosk-mode .table-responsive { max-height: none; overflow: visible; }
 body.kiosk-mode .title-area h1 { font-size: 40px; }
 body.kiosk-mode .sync-status, body.kiosk-mode .viewer-count { font-size: 18px; }
 body.kiosk-mode table { font-size: 22px; }
 body.kiosk-mode th { font-size: 16px; padding: 16px 10px; }
 body.kiosk-mode td { padding: 16px 10px; }
 body.kiosk-mode input.table-input:not(:placeholder-shown) { font-size: 28px; }
+body.kiosk-mode input.cover-input { font-size: 20px; padding: 10px 4px; }
 body.kiosk-mode .cell-pcs-text { font-size: 15px; }
 body.kiosk-mode .col-group, body.kiosk-mode .col-model { font-size: 20px; }
-body.kiosk-mode .chart-card h3 { font-size: 28px; }
-body.kiosk-mode .chart-center-text { font-size: 44px; }
-body.kiosk-mode .chart-wrapper { height: 300px; width: 300px; }
-body.kiosk-mode .stat-box { font-size: 18px; }
-body.kiosk-mode .overview-container { gap: 30px; }
+body.kiosk-mode .summary-grid { gap: 20px; }
+body.kiosk-mode .metric { padding: 20px 24px; }
+body.kiosk-mode .today-stat-value { font-size: 40px; }
+body.kiosk-mode .metric > span { font-size: 16px; }
+/* หน้า Home ตัวหนังสือ/การ์ดใหญ่ขึ้นให้อ่านจากระยะไกลได้เหมือนหน้าอื่นๆ ในโหมดนี้ */
+body.kiosk-mode .home-grid { gap: 24px; }
+body.kiosk-mode .pstock { font-size: 40px; }
+body.kiosk-mode .pname, body.kiosk-mode .punit { font-size: 16px; }
+body.kiosk-mode .pused { font-size: 15px; margin-top: 10px; padding-top: 10px; }
+body.kiosk-mode .status-pill { font-size: 16px; padding: 5px 14px; }
+body.kiosk-mode .mini-donut { width: 90px; height: 90px; }
+body.kiosk-mode .mini-donut .mid b { font-size: 22px; }
+body.kiosk-mode .mini-donut .mid span { font-size: 12px; }
+body.kiosk-mode .panel-title { font-size: 18px; }
+body.kiosk-mode .panel-note, body.kiosk-mode .legend-row { font-size: 13px; }
+body.kiosk-mode .metric .sub { font-size: 13px; }
+body.kiosk-mode .heat .hcell { font-size: 16px; height: 48px; }
+body.kiosk-mode .heat th, body.kiosk-mode .heat .rowlab, body.kiosk-mode .heat-scale { font-size: 13px; }
+body.kiosk-mode .bar-val { font-size: 14px; }
+body.kiosk-mode .bar-label { font-size: 13px; }
+body.kiosk-mode .hbar-label { font-size: 15px; }
+body.kiosk-mode .hbar-track { height: 24px; }
+body.kiosk-mode .hbar-num { font-size: 14px; }
+body.kiosk-mode .dos-row { font-size: 15px; }
+body.kiosk-mode .dos-sub { font-size: 13px; }
+body.kiosk-mode .dos-days { font-size: 16px; }
+/* การ์ด "รายการวิกฤตด่วน" ใช้คลาสร่วมกับแผงแจ้งเตือนในหน้าสต็อก (.stock-alert-*) ขยายพร้อมกันไปเลย */
+body.kiosk-mode .stock-alert-model-name { font-size: 17px; }
+body.kiosk-mode .stock-alert-model-group, body.kiosk-mode .stock-group-proc { font-size: 14px; }
+body.kiosk-mode .stock-alert-status { font-size: 15px; }
+body.kiosk-mode .announcements-header h3 { font-size: 20px; }
+body.kiosk-mode .announcement-item { font-size: 18px; }
+body.kiosk-mode .model-variant-badge, body.kiosk-mode .today-badge { font-size: 13px; }

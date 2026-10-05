@@ -1,6 +1,12 @@
 node_modules/
 data/store.json
+data/urgent-models.json
+data/announcement-process.json
 users.json
 config.json
+config.test-mysql.json
 server-log.txt
 .claude/
+data/backups/
+data/*.bak*
+*.log

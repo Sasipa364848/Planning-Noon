@@ -5,6 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "migrate:mysql": "node scripts/migrate-to-mysql.js",
+    "migrate:mysql:dry-run": "node scripts/migrate-to-mysql.js --dry-run",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -13,6 +15,8 @@
   "type": "commonjs",
   "dependencies": {
     "bcryptjs": "^3.0.3",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "mysql2": "^3.24.2",
+    "pdfjs-dist": "^5.7.284"
   }
 }
