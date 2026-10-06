@@ -389,11 +389,18 @@ function csReadDigitBox(img, map, x, y, paper) {
     const res = 10;
     const crop = csWarp(img, map, x + CS_INSET, y + CS_INSET, CS.BOX_W - 2 * CS_INSET, CS.BOX_H - 2 * CS_INSET, res);
     const { g, w, h } = crop;
+    // ความเข้มหมึกปรับตามช่อง: เทียบกับจุดเข้มสุดในช่องนั้น ปากกาลูกลื่นที่จางก็ได้เส้นต่อเนื่อง ไม่ขาดเป็นท่อนๆ
+    // (ต้องตรงกับ ink_map() ใน scripts/countsheet_extract.py ที่ใช้เตรียมข้อมูลเทรน)
+    const sorted = Float32Array.from(g).sort();
+    const pos = 0.005 * (sorted.length - 1), lo = Math.floor(pos);
+    const darkest = sorted[lo] + (sorted[Math.min(lo + 1, sorted.length - 1)] - sorted[lo]) * (pos - lo);
+    const contrast = paper - darkest;
+    if (contrast < 0.18) return null;
+    const top = paper - contrast * 0.25;
     const ink = new Float32Array(w * h), mask = new Uint8Array(w * h);
-    const cut = paper * 0.62;
     for (let i = 0; i < g.length; i++) {
-        ink[i] = Math.max(0, Math.min(1, (paper * 0.85 - g[i]) / (paper * 0.45)));
-        mask[i] = g[i] < cut ? 1 : 0;
+        ink[i] = Math.max(0, Math.min(1, (top - g[i]) / (contrast * 0.55)));
+        mask[i] = ink[i] > 0.3 ? 1 : 0;
     }
     const { comps, labels } = csComponents(mask, w, h, 6);
     // ทิ้งเส้นขอบช่องที่หลุดเข้ามา (ก้อนแบนยาวติดขอบภาพ) — ตัวเลขจริงไม่ค่อยมีรูปทรงแบบนี้

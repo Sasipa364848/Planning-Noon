@@ -88,7 +88,7 @@ def augment(img, rng):
     shear = rng.uniform(-0.25, 0.25)
     asp = rng.uniform(0.8, 1.2)
     m = np.array([[np.cos(ang), -np.sin(ang)], [np.sin(ang), np.cos(ang)]]) @ np.array([[1, shear], [0, 1]]) @ np.diag([1, asp]) / sc
-    c = np.array([14, 14])
+    c = (np.array(img.shape) - 1) / 2
     return ndimage.affine_transform(img, m, offset=c - m @ c, order=1)
 
 
@@ -112,24 +112,47 @@ def load(mnist_dir, name, header, shape):
 
 
 if __name__ == '__main__':
-    mnist_dir = sys.argv[1]
-    out_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'public', 'models')
-    xtr = load(mnist_dir, 'train-images-idx3-ubyte.gz', 16, (-1, 28, 28)).astype(np.float32) / 255
-    ytr = load(mnist_dir, 'train-labels-idx1-ubyte.gz', 8, (-1,))
-    xte = load(mnist_dir, 't10k-images-idx3-ubyte.gz', 16, (-1, 28, 28)).astype(np.float32) / 255
-    yte = load(mnist_dir, 't10k-labels-idx1-ubyte.gz', 8, (-1,))
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument('mnist_dir')
+    ap.add_argument('--real', help='npz ลายมือจริงจากใบนับ (ink, y, filt) — ดู scripts/countsheet_extract.py')
+    ap.add_argument('--holdout', help='กันลายมือจริงของ process นี้ไว้วัดผล ไม่ใช้เทรน (เช่น AI)')
+    ap.add_argument('--init', help='เริ่มจากโมเดลเดิมในโฟลเดอร์นี้ (fine-tune) แทนสุ่มใหม่')
+    ap.add_argument('--epochs', type=int, default=12)
+    ap.add_argument('--real-repeat', type=int, default=40, help='ใช้ลายมือจริงซ้ำกี่รอบต่อ epoch (แต่ละรอบบิด/ย่อขยายไม่เหมือนกัน)')
+    ap.add_argument('--out', default=os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'public', 'models'))
+    args = ap.parse_args()
+
+    xtr = load(args.mnist_dir, 'train-images-idx3-ubyte.gz', 16, (-1, 28, 28)).astype(np.float32) / 255
+    ytr = load(args.mnist_dir, 'train-labels-idx1-ubyte.gz', 8, (-1,))
+    xte = load(args.mnist_dir, 't10k-images-idx3-ubyte.gz', 16, (-1, 28, 28)).astype(np.float32) / 255
+    yte = load(args.mnist_dir, 't10k-labels-idx1-ubyte.gz', 8, (-1,))
     pool = Pool(min(16, os.cpu_count() or 4))
     print('canonicalizing test set...', flush=True)
     xte_c = prep(pool, xte)
 
+    real_tr = real_ho = None
+    if args.real:
+        rd = np.load(args.real)
+        ho = rd['filt'] == args.holdout if args.holdout else np.zeros(len(rd['y']), bool)
+        real_tr = (rd['ink'][~ho], rd['y'][~ho])
+        if ho.any():
+            real_ho = (prep(pool, rd['ink'][ho]), rd['y'][ho])
+        print(f'real handwriting: train {len(real_tr[1])}, holdout {int(ho.sum())}', flush=True)
+
     sizes = [784, 512, 256, 10]
-    W = [rng.normal(0, np.sqrt(2 / a), (a, b)).astype(np.float32) for a, b in zip(sizes[:-1], sizes[1:])]
-    B = [np.zeros(b, np.float32) for b in sizes[1:]]
+    if args.init:
+        buf = np.fromfile(os.path.join(args.init, 'digits.bin'), '<f4'); off = 0; W = []; B = []
+        for a_, b_ in zip(sizes[:-1], sizes[1:]):
+            W.append(buf[off:off + a_ * b_].reshape(a_, b_).copy()); off += a_ * b_
+            B.append(buf[off:off + b_].copy()); off += b_
+    else:
+        W = [rng.normal(0, np.sqrt(2 / a_), (a_, b_)).astype(np.float32) for a_, b_ in zip(sizes[:-1], sizes[1:])]
+        B = [np.zeros(b_, np.float32) for b_ in sizes[1:]]
     params = W + B
     m_ = [np.zeros_like(p) for p in params]
     v_ = [np.zeros_like(p) for p in params]
     t = 0
-
 
     def forward(x, train=False):
         acts = [x]
@@ -142,15 +165,32 @@ if __name__ == '__main__':
             acts.append(z)
         return acts
 
+    def report(tag):
+        acc = (forward(xte_c)[-1].argmax(1) == yte).mean()
+        msg = f'{tag} mnist_acc={acc:.4f}'
+        if real_ho is not None:
+            P = forward(real_ho[0])[-1]
+            P = np.exp(P - P.max(1, keepdims=True)); P /= P.sum(1, keepdims=True)
+            pred, conf = P.argmax(1), P.max(1)
+            ok = pred == real_ho[1]
+            msg += f' | holdout_real_acc={ok.mean():.3f} wrong_confident={int((~ok & (conf >= 0.9)).sum())} flagged={int((conf < 0.9).sum())}/{len(ok)}'
+        print(msg, flush=True)
+        return acc
 
-    epochs, bs = 12, 128
-    for ep in range(epochs):
-        lr = 1e-3 * (0.5 ** (ep // 4))
-        xa = prep(pool, xtr, seed=ep + 1)
+    report('before')
+    base_lr = 3e-4 if args.init else 1e-3
+    bs = 128
+    for ep in range(args.epochs):
+        lr = base_lr * (0.5 ** (ep // 4))
+        xa, ya = prep(pool, xtr, seed=ep + 1), ytr
+        if real_tr is not None:
+            reps = np.repeat(np.arange(len(real_tr[1])), args.real_repeat)
+            xr = prep(pool, real_tr[0][reps], seed=500 + ep)
+            xa, ya = np.concatenate([xa, xr]), np.concatenate([ya, real_tr[1][reps]])
         perm = rng.permutation(len(xa))
         for s in range(0, len(xa), bs):
             idx = perm[s:s + bs]
-            x, y = xa[idx], ytr[idx]
+            x, y = xa[idx], ya[idx]
             acts = forward(x, train=True)
             logits = acts[-1]
             p = np.exp(logits - logits.max(1, keepdims=True))
@@ -169,14 +209,14 @@ if __name__ == '__main__':
                 m_[k] = 0.9 * m_[k] + 0.1 * gr
                 v_[k] = 0.999 * v_[k] + 0.001 * gr * gr
                 p_ -= lr * (m_[k] / (1 - 0.9 ** t)) / (np.sqrt(v_[k] / (1 - 0.999 ** t)) + 1e-8)
-        acc = (forward(xte_c)[-1].argmax(1) == yte).mean()
-        print(f'epoch {ep + 1}/{epochs} lr={lr:.0e} test_acc={acc:.4f}', flush=True)
+        acc = report(f'epoch {ep + 1}/{args.epochs} lr={lr:.0e}')
 
-    os.makedirs(out_dir, exist_ok=True)
-    with open(os.path.join(out_dir, 'digits.bin'), 'wb') as f:
+    os.makedirs(args.out, exist_ok=True)
+    with open(os.path.join(args.out, 'digits.bin'), 'wb') as f:
         for w, b in zip(W, B):
             f.write(w.astype('<f4').tobytes())
             f.write(b.astype('<f4').tobytes())
-    with open(os.path.join(out_dir, 'digits.json'), 'w') as f:
-        json.dump({'layers': [[a, b] for a, b in zip(sizes[:-1], sizes[1:])], 'input': 28, 'preprocess': 'skeleton-v1', 'testAccuracy': float(acc)}, f)
-    print('saved to', os.path.abspath(out_dir))
+    with open(os.path.join(args.out, 'digits.json'), 'w') as f:
+        json.dump({'layers': [[a_, b_] for a_, b_ in zip(sizes[:-1], sizes[1:])], 'input': 28, 'preprocess': 'skeleton-v1', 'testAccuracy': float(acc),
+                   'realSamples': 0 if real_tr is None else int(len(real_tr[1]))}, f)
+    print('saved to', os.path.abspath(args.out))
