@@ -40,12 +40,52 @@ function csPageChunks(rows) {
     return pages;
 }
 
+// ===== ใบนับแบบใหม่ (v2): 1 process ต่อ 1 แผ่น (แถวเตี้ยลงตามจำนวน Model) + ช่อง "แก้ไข" 2 ช่องท้ายแถว =====
+// มีสี่เหลี่ยมทึบที่หัวกระดาษ (MARK) บอกว่าเป็นแบบใหม่ — ใบแบบเก่า (CS ด้านบน) ยังอ่านได้ตามเดิม
+// แถบบิตเก็บ process + หน้า + จำนวนแถวของหน้านั้น (ใช้คำนวณความสูงแถวตอนอ่าน) + checksum รายชื่อ Model
+const CS2 = {
+    MARK: { x: 110, y: 11, s: 5 },
+    BITS_Y: 30, BITS_X: 22, BIT_W: 3.4, BIT_STEP: 4.4, BIT_COUNT: 21,
+    HEAD_Y: 38, ROW_Y0: 46, ROW_AREA: 220, ROW_H_MAX: 11, MAX_ROWS: 28,
+    COL_CODE: 22, COL_MODEL: 36, COL_LAST: 96, COL_DIGITS: 116, DIGITS: 6, BOX_W: 8,
+    COL_FIX: 172, FIX: 2,
+};
+function cs2RowH(n) { return Math.min(CS2.ROW_H_MAX, CS2.ROW_AREA / Math.max(n, 1)); }
+// จัดหน้าแบบไม่ตัดกลุ่ม: ปกติทั้ง process อยู่แผ่นเดียว — ถ้าเกิน MAX_ROWS ค่อยขึ้นแผ่นใหม่ทีละกลุ่ม
+function cs2Paginate(rows) {
+    const groups = [];
+    rows.forEach(r => { if (!groups.length || groups[groups.length - 1][0].groupId !== r.groupId) groups.push([]); groups[groups.length - 1].push(r); });
+    const pages = [[]];
+    groups.forEach(g => {
+        let cur = pages[pages.length - 1];
+        if (cur.length && cur.length + g.length > CS2.MAX_ROWS) { cur = []; pages.push(cur); }
+        g.forEach(r => { if (cur.length === CS2.MAX_ROWS) { cur = []; pages.push(cur); } cur.push(r); });
+    });
+    return pages;
+}
+function cs2EncodeBits(filter, page, nRows, hash) {
+    const v = (CS_PROC_INDEX[filter] << 17) | ((page & 0xf) << 13) | ((nRows & 0x1f) << 8) | (hash & 0xff);
+    const bits = [];
+    for (let i = 19; i >= 0; i--) bits.push((v >> i) & 1);
+    bits.push(bits.reduce((a, b) => a ^ b, 0));
+    return bits;
+}
+function cs2DecodeBits(bits) {
+    if (bits.slice(0, 20).reduce((a, b) => a ^ b, 0) !== bits[20]) return null;
+    let v = 0;
+    for (let i = 0; i < 20; i++) v = (v << 1) | bits[i];
+    const proc = CS_PROC_BY_INDEX[v >> 17];
+    const nRows = (v >> 8) & 0x1f;
+    if (!proc || !nRows) return null;
+    return { filter: proc, page: (v >> 13) & 0xf, nRows, hash: v & 0xff };
+}
+
 // ===================== พิมพ์ใบนับ =====================
 function printStockCountSheet() {
     const filter = stockProcessFilter;
     const rows = buildCountSheetRows(filter);
     if (rows.length === 0) { showToast('ไม่มี Model ในแท็บนี้', 'info'); return; }
-    if (csPageChunks(rows).length > 16) { showToast('Model เยอะเกินกว่าจะพิมพ์ในใบนับเดียว (เกิน 16 หน้า)', 'error'); return; }
+    if (cs2Paginate(rows).length > 16) { showToast('Model เยอะเกินกว่าจะพิมพ์ในใบนับเดียว (เกิน 16 หน้า)', 'error'); return; }
     const docHtml = csBuildSheetHtml(filter, rows);
     const old = document.getElementById('countSheetFrame');
     if (old) old.remove();
@@ -59,14 +99,18 @@ function printStockCountSheet() {
 }
 
 function csBuildSheetHtml(filter, rows) {
-    const pages = csPageChunks(rows);
+    const pages = cs2Paginate(rows);
     const now = new Date();
     const printedAt = now.toLocaleDateString('en-GB') + ' ' + now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-    const mm = v => `${v}mm`;
+    const mm = v => `${+v.toFixed(3)}mm`;
     const abs = (x, y, w, h) => `left:${mm(x)};top:${mm(y)};width:${mm(w)};height:${mm(h)};`;
+    const L = CS2;
+    const right = L.COL_FIX + L.FIX * L.BOX_W;
 
     const pageHtml = pages.map((pageRows, p) => {
-        const bits = csEncodeBits(filter, p, csRowsHash(pageRows));
+        const rowH = cs2RowH(pageRows.length);
+        const boxH = rowH - 2;
+        const bits = cs2EncodeBits(filter, p, pageRows.length, csRowsHash(pageRows));
         const fid = (name) => {
             const [cx, cy] = CS.FIDS[name];
             const hole = name === 'TL' ? `<div class="fid-hole" style="${abs((CS.FID - CS.FID_HOLE) / 2, (CS.FID - CS.FID_HOLE) / 2, CS.FID_HOLE, CS.FID_HOLE)}"></div>` : '';
@@ -74,29 +118,33 @@ function csBuildSheetHtml(filter, rows) {
         };
         let lastGroup = null;
         const rowsHtml = pageRows.map((r, i) => {
-            const y = CS.ROW_Y0 + i * CS.ROW_H;
+            const y = L.ROW_Y0 + i * rowH;
             const showGroup = r.groupId !== lastGroup;
             lastGroup = r.groupId;
             const last = r.stockRec.value !== '' && r.stockRec.value != null ? (parseFloat(r.stockRec.value) || 0).toLocaleString() : '-';
-            const boxes = Array.from({ length: CS.DIGITS }, (_, d) =>
-                `<div class="dbox" style="${abs(CS.COL_DIGITS + d * CS.BOX_W, y + 1, CS.BOX_W, CS.BOX_H)}"></div>`).join('');
-            return `<div class="rowline" style="${abs(CS.COL_CODE, y + CS.ROW_H, 188 - CS.COL_CODE, 0)}"></div>
-                <div class="t code" style="${abs(CS.COL_CODE, y, 16, CS.ROW_H)}">${r.code}</div>
-                <div class="t model" style="${abs(CS.COL_MODEL, y, CS.COL_LAST - CS.COL_MODEL - 2, CS.ROW_H)}">${showGroup ? `<span class="grp">${escapeHtml(r.groupLabel)}</span>` : ''}<span>${escapeHtml(r.displayModel)}</span></div>
-                <div class="t last" style="${abs(CS.COL_LAST, y, 22, CS.ROW_H)}">${last}</div>${boxes}`;
+            const boxes = Array.from({ length: L.DIGITS }, (_, d) =>
+                `<div class="dbox" style="${abs(L.COL_DIGITS + d * L.BOX_W, y + 1, L.BOX_W, boxH)}"></div>`).join('');
+            const fixes = Array.from({ length: L.FIX }, (_, d) =>
+                `<div class="dbox fix" style="${abs(L.COL_FIX + d * L.BOX_W, y + 1, L.BOX_W, boxH)}"></div>`).join('');
+            return `<div class="rowline" style="${abs(L.COL_CODE, y + rowH, right - L.COL_CODE, 0)}"></div>
+                <div class="t code" style="${abs(L.COL_CODE, y, 14, rowH)}">${r.code}</div>
+                <div class="t model" style="${abs(L.COL_MODEL, y, L.COL_LAST - L.COL_MODEL - 2, rowH)}">${showGroup ? `<span class="grp">${escapeHtml(r.groupLabel)}</span>` : ''}<span>${escapeHtml(r.displayModel)}</span></div>
+                <div class="t last" style="${abs(L.COL_LAST, y, 18, rowH)}">${last}</div>${boxes}${fixes}`;
         }).join('');
-        const bitsHtml = bits.map((b, i) => `<div class="bit${b ? ' on' : ''}" style="${abs(CS.BITS_X + i * CS.BIT_STEP, CS.BITS_Y, CS.BIT_W, CS.BIT_W)}"></div>`).join('');
+        const bitsHtml = bits.map((b, i) => `<div class="bit${b ? ' on' : ''}" style="${abs(L.BITS_X + i * L.BIT_STEP, L.BITS_Y, L.BIT_W, L.BIT_W)}"></div>`).join('');
         return `<div class="page">
             ${['TL', 'TR', 'BL', 'BR'].map(fid).join('')}
-            <div class="t" style="${abs(24, 10, 98, 16)}"><b style="font-size:15pt">ใบนับสต็อก — ${countSheetLabel(filter)}</b><br><span style="font-size:9pt">DSST · Production Plan · หน้า ${p + 1}/${pages.length}</span></div>
+            <div class="mark" style="${abs(L.MARK.x, L.MARK.y, L.MARK.s, L.MARK.s)}"></div>
+            <div class="t" style="${abs(24, 10, 84, 16)}"><b style="font-size:15pt">ใบนับสต็อก — ${countSheetLabel(filter)}</b><br><span style="font-size:9pt">DSST · Production Plan · หน้า ${p + 1}/${pages.length}</span></div>
             <div class="t" style="${abs(124, 10, 64, 18)};font-size:10pt;line-height:2">วันที่ ______________<br>ผู้นับ ______________</div>
             ${bitsHtml}
-            <div class="t hint" style="${abs(112, 29, 76, 7)}">เขียนตัวเลข 1 หลักต่อ 1 ช่อง ชิดซ้าย · ไม่ได้นับให้เว้นว่าง</div>
-            <div class="t head" style="${abs(CS.COL_CODE, CS.HEAD_Y, 16, 7)}">รหัส</div>
-            <div class="t head" style="${abs(CS.COL_MODEL, CS.HEAD_Y, 60, 7)}">Model</div>
-            <div class="t head" style="${abs(CS.COL_LAST, CS.HEAD_Y, 22, 7)};justify-content:flex-end">นับครั้งก่อน</div>
-            <div class="t head" style="${abs(CS.COL_DIGITS, CS.HEAD_Y, CS.DIGITS * CS.BOX_W, 7)}">จำนวนที่นับได้</div>
-            <div class="rowline dark" style="${abs(CS.COL_CODE, CS.ROW_Y0, 188 - CS.COL_CODE, 0)}"></div>
+            <div class="t hint" style="${abs(118, 28.5, 72, 8)}"><span>เขียนตัวเลข 1 หลักต่อ 1 ช่อง ชิดซ้าย · ไม่ได้นับเว้นว่าง</span><span><b>เขียนผิด:</b> ระบายช่องที่ผิดให้ทึบ ■ แล้วเขียนตัวที่ถูกในช่อง "แก้ไข"</span></div>
+            <div class="t head" style="${abs(L.COL_CODE, L.HEAD_Y, 14, 7)}">รหัส</div>
+            <div class="t head" style="${abs(L.COL_MODEL, L.HEAD_Y, 50, 7)}">Model</div>
+            <div class="t head" style="${abs(L.COL_LAST, L.HEAD_Y, 18, 7)};justify-content:flex-end">นับครั้งก่อน</div>
+            <div class="t head" style="${abs(L.COL_DIGITS, L.HEAD_Y, L.DIGITS * L.BOX_W, 7)}">จำนวนที่นับได้</div>
+            <div class="t head fixhead" style="${abs(L.COL_FIX, L.HEAD_Y, L.FIX * L.BOX_W, 7)}">แก้ไข</div>
+            <div class="rowline dark" style="${abs(L.COL_CODE, L.ROW_Y0, right - L.COL_CODE, 0)}"></div>
             ${rowsHtml}
             <div class="t foot" style="${abs(24, 268, 164, 6)}">ทั้งหมด ${rows.length} รายการ · พิมพ์จากระบบ ${printedAt} · ห้ามย่อ/ขยายตอนพิมพ์ (ใช้ขนาดจริง 100%)</div>
         </div>`;
@@ -109,7 +157,7 @@ function csBuildSheetHtml(filter, rows) {
         .page { position: relative; width: 210mm; height: 297mm; overflow: hidden; page-break-after: always; }
         .page:last-child { page-break-after: auto; }
         .page > div { position: absolute; }
-        .fid { background: #000; }
+        .fid, .mark { background: #000; }
         .fid .fid-hole { position: absolute; background: #fff; }
         .bit { border: 0.2mm solid #999; }
         .bit.on { background: #000; border-color: #000; }
@@ -119,12 +167,14 @@ function csBuildSheetHtml(filter, rows) {
         .t.model .grp { font-size: 7pt; color: #555; }
         .t.last { align-items: flex-end; color: #444; }
         .t.head { font-size: 8.5pt; font-weight: 700; color: #333; flex-direction: row; align-items: center; }
-        .t.hint { font-size: 7.5pt; color: #444; }
+        .t.head.fixhead { justify-content: center; color: #b45309; }
+        .t.hint { font-size: 7pt; color: #444; line-height: 1.35; }
         .t.foot { font-size: 8pt; color: #444; }
         .rowline { border-top: 0.2mm solid #bbb; }
         .rowline.dark { border-top: 0.3mm solid #000; }
         .dbox { border: 0.25mm solid #b0b0b0; }
         .dbox + .dbox { border-left-width: 0; }
+        .dbox.fix { border-color: #e0a060; background: #fff8ee; }
     </style></head><body>${pageHtml}</body></html>`;
     return docHtml;
 }
@@ -385,9 +435,12 @@ function csWarp(img, map, x, y, wmm, hmm, res) {
 }
 
 const CS_INSET = 1.1;
-function csReadDigitBox(img, map, x, y, paper) {
+// ช่องที่ "ระบายทึบ" (บอกว่าเขียนผิด): หมึกกินพื้นที่เกินสัดส่วนนี้ของช่อง — ตัวเลขปกติกินราว 10–25%
+const CS_FILLED_RATIO = 0.42;
+// คืน null = ช่องว่าง, { filled: true } = ระบายทึบ, { digit, conf } = ตัวเลขที่อ่านได้
+function csReadDigitBox(img, map, x, y, paper, bw = CS.BOX_W, bh = CS.BOX_H) {
     const res = 10;
-    const crop = csWarp(img, map, x + CS_INSET, y + CS_INSET, CS.BOX_W - 2 * CS_INSET, CS.BOX_H - 2 * CS_INSET, res);
+    const crop = csWarp(img, map, x + CS_INSET, y + CS_INSET, bw - 2 * CS_INSET, bh - 2 * CS_INSET, res);
     const { g, w, h } = crop;
     // ความเข้มหมึกปรับตามช่อง: เทียบกับจุดเข้มสุดในช่องนั้น ปากกาลูกลื่นที่จางก็ได้เส้นต่อเนื่อง ไม่ขาดเป็นท่อนๆ
     // (ต้องตรงกับ ink_map() ใน scripts/countsheet_extract.py ที่ใช้เตรียมข้อมูลเทรน)
@@ -398,10 +451,13 @@ function csReadDigitBox(img, map, x, y, paper) {
     if (contrast < 0.18) return null;
     const top = paper - contrast * 0.25;
     const ink = new Float32Array(w * h), mask = new Uint8Array(w * h);
+    let inked = 0;
     for (let i = 0; i < g.length; i++) {
         ink[i] = Math.max(0, Math.min(1, (top - g[i]) / (contrast * 0.55)));
         mask[i] = ink[i] > 0.3 ? 1 : 0;
+        inked += mask[i];
     }
+    if (inked / (w * h) > CS_FILLED_RATIO) return { filled: true };
     const { comps, labels } = csComponents(mask, w, h, 6);
     // ทิ้งเส้นขอบช่องที่หลุดเข้ามา (ก้อนแบนยาวติดขอบภาพ) — ตัวเลขจริงไม่ค่อยมีรูปทรงแบบนี้
     const keep = new Set(comps.filter(c => {
@@ -424,10 +480,9 @@ function csReadDigitBox(img, map, x, y, paper) {
     return csPredict(input);
 }
 
-function csRowThumb(img, map, rowY) {
+function csRowThumb(img, map, x, rowY, wmm, hmm) {
     const res = 6;
-    const x = CS.COL_DIGITS - 1, wmm = CS.DIGITS * CS.BOX_W + 2;
-    const crop = csWarp(img, map, x, rowY, wmm, CS.ROW_H, res);
+    const crop = csWarp(img, map, x, rowY, wmm, hmm, res);
     const c = document.createElement('canvas');
     c.width = crop.w; c.height = crop.h;
     const ctx = c.getContext('2d');
@@ -443,23 +498,63 @@ function csReadPage(canvas) {
     if (!f) return { error: 'หาจุดมาร์ค 4 มุมไม่เจอ (ต้องเป็นใบนับที่พิมพ์จากระบบ และสแกนให้เห็นครบทั้ง 4 มุม)' };
     const names = ['TL', 'TR', 'BL', 'BR'];
     const map = csHomography(names.map(n => CS.FIDS[n]), names.map(n => f[n]));
-    const bits = [];
-    for (let i = 0; i < CS.BIT_COUNT; i++) {
-        const crop = csWarp(img, map, CS.BITS_X + i * CS.BIT_STEP + 0.8, CS.BITS_Y + 0.8, CS.BIT_W - 1.6, CS.BIT_W - 1.6, 6);
+    const darkRatio = (x, y, w, h, res = 6) => {
+        const crop = csWarp(img, map, x, y, w, h, res);
         let dark = 0;
         for (let k = 0; k < crop.g.length; k++) if (crop.g[k] < f.paper * 0.5) dark++;
-        bits.push(dark / crop.g.length > 0.5 ? 1 : 0);
+        return dark / crop.g.length;
+    };
+    const readBits = (L) => Array.from({ length: L.BIT_COUNT }, (_, i) =>
+        darkRatio(L.BITS_X + i * L.BIT_STEP + 0.6, L.BITS_Y + 0.6, L.BIT_W - 1.2, L.BIT_W - 1.2) > 0.5 ? 1 : 0);
+
+    // แบบใหม่ (v2) มีสี่เหลี่ยมทึบที่หัวกระดาษ — ใบแบบเก่าตรงนั้นเป็นกระดาษเปล่า
+    const m = CS2.MARK;
+    if (darkRatio(m.x + 1, m.y + 1, m.s - 2, m.s - 2) > 0.6) {
+        const id = cs2DecodeBits(readBits(CS2));
+        if (!id) return { error: 'อ่านรหัสหน้ากระดาษไม่ได้ (แถบสี่เหลี่ยมใต้หัวกระดาษอาจเลอะหรือขาด)' };
+        const L = CS2, rowH = cs2RowH(id.nRows), boxH = rowH - 2;
+        const rows = [];
+        for (let i = 0; i < id.nRows; i++) {
+            const y = L.ROW_Y0 + i * rowH;
+            const boxes = Array.from({ length: L.DIGITS }, (_, d) => csReadDigitBox(img, map, L.COL_DIGITS + d * L.BOX_W, y + 1, f.paper, L.BOX_W, boxH));
+            const fixes = Array.from({ length: L.FIX }, (_, d) => csReadDigitBox(img, map, L.COL_FIX + d * L.BOX_W, y + 1, f.paper, L.BOX_W, boxH));
+            const row = csResolveCorrections(boxes, fixes);
+            const hasInk = boxes.some(Boolean) || fixes.some(Boolean);
+            row.thumb = hasInk ? csRowThumb(img, map, L.COL_DIGITS - 1, y, L.COL_FIX + L.FIX * L.BOX_W - L.COL_DIGITS + 2, rowH) : null;
+            rows.push(row);
+        }
+        return { ...id, version: 2, rows };
     }
-    const id = csDecodeBits(bits);
+
+    const id = csDecodeBits(readBits(CS));
     if (!id) return { error: 'อ่านรหัสหน้ากระดาษไม่ได้ (แถบสี่เหลี่ยมใต้หัวกระดาษอาจเลอะหรือขาด)' };
     const rows = [];
     for (let i = 0; i < CS.ROWS; i++) {
         const y = CS.ROW_Y0 + i * CS.ROW_H;
         const digits = [];
         for (let d = 0; d < CS.DIGITS; d++) digits.push(csReadDigitBox(img, map, CS.COL_DIGITS + d * CS.BOX_W, y + 1, f.paper));
-        rows.push({ digits, thumb: digits.some(Boolean) ? csRowThumb(img, map, y) : null });
+        const row = csResolveCorrections(digits, []);
+        row.thumb = digits.some(Boolean) ? csRowThumb(img, map, CS.COL_DIGITS - 1, y, CS.DIGITS * CS.BOX_W + 2, CS.ROW_H) : null;
+        rows.push(row);
     }
-    return { ...id, rows };
+    return { ...id, version: 1, rows };
+}
+
+// รวมช่องตัวเลขกับช่องแก้ไข: ช่องที่ระบายทึบ แทนด้วยตัวเลขในช่อง "แก้ไข" ตามลำดับซ้าย → ขวา
+// คืน { digits: [ {digit, conf} | null ], error?: ข้อความ (ให้คนกรอกเอง), note?: ข้อความเตือนให้ตรวจ }
+function csResolveCorrections(boxes, fixes) {
+    const filledIdx = boxes.map((b, i) => (b && b.filled ? i : -1)).filter(i => i >= 0);
+    const fixDigits = fixes.filter(f => f && !f.filled);
+    if (fixes.some(f => f && f.filled)) return { digits: [], error: 'ช่องแก้ไขถูกระบายทึบ — ดูรูปแล้วกรอกเอง' };
+    if (!filledIdx.length) {
+        return { digits: boxes, note: fixDigits.length ? 'มีตัวเลขในช่องแก้ไข แต่ไม่มีช่องที่ระบาย — ตรวจอีกที' : null };
+    }
+    if (filledIdx.length > fixes.length || fixDigits.length !== filledIdx.length) {
+        return { digits: [], error: `ระบายไว้ ${filledIdx.length} ช่อง แต่ช่องแก้ไขมี ${fixDigits.length} ตัว — ดูรูปแล้วกรอกเอง` };
+    }
+    const digits = boxes.slice();
+    filledIdx.forEach((bi, k) => { digits[bi] = fixDigits[k]; });
+    return { digits, note: 'มีการแก้ไขตัวเลข — ตรวจกับรูปอีกที', corrected: true };
 }
 
 const CS_MIN_CONF = 0.9;
@@ -489,39 +584,49 @@ async function readStockCountScan(input) {
         overlay.style.display = 'none';
         if (!results.length) { await csNotice('อ่านใบนับไม่ได้', errors); return; }
 
+        // ไฟล์เดียวมีใบนับหลาย process ได้ — อ่านทุก process แล้วรวมไว้หน้าตรวจเดียว เรียงตามลำดับแท็บในหน้าสต็อก
         const byFilter = {};
         results.forEach(r => { (byFilter[r.filter] = byFilter[r.filter] || []).push(r); });
-        const filter = Object.keys(byFilter).sort((a, b) => byFilter[b].length - byFilter[a].length)[0];
+        const filters = Object.keys(CS_PROC_INDEX).filter(f => byFilter[f]);
         const warnings = [...errors];
-        if (Object.keys(byFilter).length > 1) warnings.push(`ไฟล์มีใบนับหลาย process — จะกรอกเฉพาะ ${countSheetLabel(filter)} ก่อน ที่เหลืออัปโหลดแยกอีกรอบ`);
-
-        const sheetRows = buildCountSheetRows(filter);
-        const chunks = csPageChunks(sheetRows);
         const prefill = {};
-        byFilter[filter].forEach(pr => {
-            const chunk = chunks[pr.page];
-            if (!chunk) { warnings.push(`หน้า ${pr.page + 1}: ไม่มีหน้านี้ในรายชื่อ Model ปัจจุบันแล้ว`); return; }
-            if (csRowsHash(chunk) !== pr.hash) warnings.push(`หน้า ${pr.page + 1}: รายชื่อ Model เปลี่ยนไปหลังพิมพ์ใบนับ — ตรวจทุกแถวให้ดี`);
-            pr.rows.forEach((row, i) => {
-                if (i >= chunk.length) return;
-                const idx = pr.page * CS.ROWS + i;
-                const read = row.digits;
-                const firstIdx = read.findIndex(Boolean);
-                if (firstIdx < 0) return;
-                const lastIdx = read.length - 1 - [...read].reverse().findIndex(Boolean);
-                const gap = read.slice(firstIdx, lastIdx + 1).some(d => !d);
-                const value = read.filter(Boolean).map(d => d.digit).join('');
-                const conf = Math.min(...read.filter(Boolean).map(d => d.conf));
-                prefill[idx] = { value, uncertain: gap || conf < CS_MIN_CONF, thumb: row.thumb };
+        const pageLabels = [];
+        let offset = 0;
+        filters.forEach(filter => {
+            const label = countSheetLabel(filter);
+            const sheetRows = buildCountSheetRows(filter);
+            // ใบแบบเก่าแบ่งหน้าละ 20 แถวตายตัว ใบแบบใหม่แบ่งตามกลุ่ม (ทั้ง process แผ่นเดียว) — ต้องใช้วิธีแบ่งแบบเดียวกับตอนพิมพ์
+            const chunksByVersion = { 1: csPageChunks(sheetRows), 2: cs2Paginate(sheetRows) };
+            byFilter[filter].sort((x, y) => x.page - y.page).forEach(pr => {
+                pageLabels.push(`${label} หน้า ${pr.page + 1}`);
+                const chunks = chunksByVersion[pr.version];
+                const chunk = chunks[pr.page];
+                if (!chunk) { warnings.push(`${label} หน้า ${pr.page + 1}: ไม่มีหน้านี้ในรายชื่อ Model ปัจจุบันแล้ว`); return; }
+                if (csRowsHash(chunk) !== pr.hash || (pr.nRows && pr.nRows !== chunk.length)) warnings.push(`${label} หน้า ${pr.page + 1}: รายชื่อ Model เปลี่ยนไปหลังพิมพ์ใบนับ — ตรวจทุกแถวให้ดี (หรือพิมพ์ใบนับใหม่)`);
+                const pageStart = chunks.slice(0, pr.page).reduce((n, c) => n + c.length, 0);
+                pr.rows.forEach((row, i) => {
+                    if (i >= chunk.length) return;
+                    const idx = offset + pageStart + i;
+                    if (row.error) { prefill[idx] = { value: '', manual: true, msg: row.error, thumb: row.thumb }; return; }
+                    const read = row.digits;
+                    const firstIdx = read.findIndex(Boolean);
+                    if (firstIdx < 0) {
+                        if (row.thumb) prefill[idx] = { value: '', manual: true, msg: row.note || 'มีรอยเขียนแต่อ่านเป็นตัวเลขไม่ได้ — ดูรูปแล้วกรอกเอง', thumb: row.thumb };
+                        return;
+                    }
+                    const lastIdx = read.length - 1 - [...read].reverse().findIndex(Boolean);
+                    const gap = read.slice(firstIdx, lastIdx + 1).some(d => !d);
+                    const value = read.filter(Boolean).map(d => d.digit).join('');
+                    const conf = Math.min(...read.filter(Boolean).map(d => d.conf));
+                    prefill[idx] = { value, uncertain: gap || conf < CS_MIN_CONF || !!row.note, msg: row.note || null, thumb: row.thumb };
+                });
             });
+            offset += sheetRows.length;
         });
 
-        if (filter !== stockProcessFilter) {
-            const btn = Array.from(document.querySelectorAll('#stockProcessFilterGroup .toggle-btn')).find(b => (b.getAttribute('onclick') || '').includes(`'${filter}'`));
-            setStockProcessFilter(filter, btn);
-        }
+        if (filters.length === 1 && filters[0] !== stockProcessFilter) openStockTab(filters[0]);
         const readCount = Object.keys(prefill).length;
-        openStockCountEntry({ values: prefill, pages: byFilter[filter].map(p => p.page + 1).sort((a, b) => a - b) });
+        openStockCountEntry({ values: prefill, pages: pageLabels, filters });
         if (warnings.length) await csNotice(`อ่านได้ ${readCount} รายการ แต่มีข้อควรระวัง`, warnings);
     } catch (err) {
         console.error(err);

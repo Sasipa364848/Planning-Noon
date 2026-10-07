@@ -104,11 +104,13 @@ def ink_map(crop, paper):
     return ink, ink > 0.3
 
 
-def read_digit_box(g, hmap, x, y, paper):
-    crop = warp(g, hmap, x + INSET, y + INSET, BOX_W - 2 * INSET, BOX_H - 2 * INSET, 10)
+def read_digit_box(g, hmap, x, y, paper, bw=BOX_W, bh=BOX_H):
+    crop = warp(g, hmap, x + INSET, y + INSET, bw - 2 * INSET, bh - 2 * INSET, 10)
     h, w = crop.shape
     ink, mask = ink_map(crop, paper)
     if ink is None:
+        return None, crop
+    if mask.mean() > 0.42:  # ระบายทึบ (เขียนผิด) — ไม่ใช่ตัวเลข
         return None, crop
     lab, n = ndimage.label(mask)
     keep = np.zeros(n + 1, bool)
@@ -143,6 +145,23 @@ def read_page(a):
         return None
     names = ['TL', 'TR', 'BL', 'BR']
     hmap = homography([FIDS[n] for n in names], [f[n] for n in names])
+    dark = lambda x, y, w, h: (warp(g, hmap, x, y, w, h, 6) < f['paper'] * 0.5).mean()
+    # ใบแบบใหม่ (v2): สี่เหลี่ยมทึบที่หัวกระดาษ + จำนวนแถวในแถบบิต + ช่องแก้ไข 2 ช่อง (ตรงกับ CS2 ใน count-sheet.js)
+    if dark(111, 12, 3, 3) > 0.6:
+        bits = [1 if dark(22 + i * 4.4 + 0.6, 30.6, 2.2, 2.2) > 0.5 else 0 for i in range(21)]
+        v = 0
+        for b in bits[:20]:
+            v = (v << 1) | b
+        n = (v >> 8) & 0x1f
+        page_id = {'filter': PROCS[v >> 17] if (v >> 17) < len(PROCS) else '?', 'page': (v >> 13) & 0xf, 'parity_ok': sum(bits[:20]) % 2 == bits[20], 'rows': n}
+        rh = min(11, 220 / max(n, 1)); bh = rh - 2
+        rows = []
+        for r in range(n):
+            y = 46 + r * rh
+            digits = [read_digit_box(g, hmap, 116 + d * 8, y + 1, f['paper'], 8, bh)[0] for d in range(6)]
+            digits += [read_digit_box(g, hmap, 172 + d * 8, y + 1, f['paper'], 8, bh)[0] for d in range(2)]
+            rows.append({'digits': digits, 'strip': warp(g, hmap, 115, y, 74, rh, 8)})
+        return page_id, rows
     bits = []
     for i in range(BIT_COUNT):
         c = warp(g, hmap, BITS_X + i * BIT_STEP + 0.8, BITS_Y + 0.8, BIT_W - 1.6, BIT_W - 1.6, 6)
@@ -172,7 +191,7 @@ def main():
         if not res:
             print(name, 'fiducials not found'); continue
         pid, rows = res
-        used = [r for r in range(ROWS) if any(x is not None for x in rows[r]['digits'])]
+        used = [r for r in range(len(rows)) if any(x is not None for x in rows[r]['digits'])]
         print(name, pid, 'rows with ink:', len(used))
         # รูปขยายแถวที่มีลายมือ ไว้ให้คนอ่านแล้วใส่คำตอบ
         if used:
@@ -190,7 +209,7 @@ def main():
             for d, res in enumerate(rows[r]['digits']):
                 if res is not None:
                     allx.append(res[0]); allink.append(res[1]); meta.append({'src': name, 'filter': pid['filter'], 'page': pid['page'] + 1, 'row': r + 1, 'box': d + 1})
-    np.savez_compressed(os.path.join(out, 'digits.npz'), x=np.array(allx, np.float32), ink=np.array(allink, np.float32))
+    np.savez_compressed(os.path.join(out, 'digits.npz'), x=np.array(allx, np.float32), ink=np.array([np.pad(k, ((0, 68 - k.shape[0]), (0, 68 - k.shape[1]))) for k in allink], np.float32))
     json.dump(meta, open(os.path.join(out, 'digits_meta.json'), 'w'), ensure_ascii=False, indent=0)
     print('digits:', len(allx))
 

@@ -87,6 +87,12 @@ const I18N = {
     count_entry: { th: 'กรอกจากใบนับ', en: 'Enter from sheet' },
     lc_no_plan_today: { th: 'ไม่มีแผนวันนี้', en: 'no plan this day' },
     ship_auto_title: { th: 'คำนวณจากแผนผลิตของกระบวนการที่ใช้ (BW ← LC, LC ← CW) ในวันที่เลือก ตามความสัมพันธ์ใน BOM (เครื่อง × Hrs × 3600 ÷ MCT × OA% × อัตราส่วน)', en: 'Calculated from the consuming process plan (BW ← LC, LC ← CW) on the selected day via the BOM (M/C × Hrs × 3600 ÷ MCT × OA% × ratio)' },
+    show_pcs: { th: 'แสดงชิ้น', en: 'Show pcs' },
+    show_pcs_title: { th: 'แสดงจำนวนชิ้นใต้ตัวเลขเครื่อง (ชี้เมาส์ที่ช่องก็เห็นได้)', en: 'Show pieces under machine counts (also visible on hover)' },
+    struct_mode: { th: 'จัดการ Model/กลุ่ม', en: 'Manage models/groups' },
+    struct_mode_title: { th: 'แสดงเครื่องมือเพิ่ม/แก้/ลบ/จัดลำดับ Model, แก้ไขประเภท และ OA%/MCT', en: 'Show tools to add/edit/delete/reorder models, rename groups and edit OA%/MCT' },
+    hrs_label: { th: 'ชม./วัน', en: 'Hrs/day' },
+    comment_rclick_title: { th: 'คลิกขวาเพื่อเพิ่ม/แก้คอมเมนต์ (ในโหมดจัดการ Model/กลุ่ม)', en: 'Right-click to add/edit a comment (in manage mode)' },
     plan_title_short: { th: 'แผน M/C', en: 'M/C plan' },
     nav_plans_label: { th: 'แผนการผลิต', en: 'Production plans' },
     login_to_edit: { th: 'เข้าสู่ระบบเพื่อแก้ไข', en: 'Log in to edit' },
@@ -320,6 +326,28 @@ function setStockProcessFilter(proc, btn) {
 function getParams(groupId) { return groupParams[groupId] || { oa: 80, mct: 2.5 }; }
 
 // === ปุ่ม "ซ่อน Model ว่าง" บนหน้าจอปกติ (ไม่ใช่แค่ตอนพิมพ์) ===
+// มุมมองตารางแผนแบบเรียบ: ตัวเลขชิ้นใต้ช่อง (จำไว้ในเครื่อง) และเครื่องมือจัดโครงสร้าง Model/กลุ่ม (แอดมิน, เปิดเฉพาะตอนใช้)
+let showPcs = localStorage.getItem('master_plan_show_pcs') === 'true';
+let structMode = false;
+function applyViewPrefs() {
+    document.body.classList.toggle('show-pcs', showPcs);
+    document.body.classList.toggle('struct-mode', structMode && isAdmin);
+    document.body.classList.toggle('is-admin', isAdmin);
+    const pcsBtn = document.getElementById('showPcsBtn');
+    if (pcsBtn) pcsBtn.classList.toggle('active', showPcs);
+    const structBtn = document.getElementById('structModeBtn');
+    if (structBtn) structBtn.classList.toggle('active', structMode && isAdmin);
+}
+function toggleShowPcs() {
+    showPcs = !showPcs;
+    try { localStorage.setItem('master_plan_show_pcs', String(showPcs)); } catch (e) { }
+    applyViewPrefs();
+}
+function toggleStructMode() {
+    structMode = !structMode;
+    applyViewPrefs();
+}
+
 function toggleHideEmptyModels() {
     hideEmptyModels = !hideEmptyModels;
     localStorage.setItem('master_plan_hide_empty', String(hideEmptyModels));
@@ -687,8 +715,9 @@ function renderAutoPlanStaleBar() {
     const { plan } = computeAutoPlanForView();
     const n = autoPlanChanges(plan, getViewDateKeys(), true).filter(c => c.proc === currentProcess && !c.locked).length;
     if (!n) { bar.style.display = 'none'; return; }
-    bar.style.display = 'flex';
-    bar.innerHTML = `<i class="fas fa-arrows-rotate"></i> <span>แผน ${currentProcess} ไม่ตรงกับที่คำนวณจากแผน CW อยู่ <b>${n}</b> ช่องในช่วงนี้</span> <button class="ap-link-btn" onclick="openAutoPlan()">เปิด Auto Plan เพื่อตรวจ</button>`;
+    bar.style.display = 'inline-flex';
+    bar.title = `แผน ${currentProcess} ไม่ตรงกับที่คำนวณจากแผน CW อยู่ ${n} ช่องในช่วงนี้ — กดเพื่อเปิด Auto Plan`;
+    bar.innerHTML = `<i class="fas fa-arrows-rotate"></i> แผนไม่ตรงกับ CW <b>${n}</b> ช่อง <button class="ap-link-btn" onclick="openAutoPlan()">ตรวจ</button>`;
 }
 
 // === ส่งแผนเครื่องจักรให้ทีมผ่าน Teams — เฉพาะ Admin กดเอง ไม่ใช่ auto-send ทุกครั้งที่บันทึก ===
@@ -1822,16 +1851,19 @@ function openStockCountEntry(prefill = null) {
     const pre = (prefill && prefill.values) || {};
     const scanned = !!prefill;
     const cols = scanned ? 6 : 5;
-    const filter = stockProcessFilter;
-    const rows = buildCountSheetRows(filter);
+    // อ่านใบสแกนที่มีหลาย process ในไฟล์เดียว → รวมทุก process ไว้หน้าตรวจเดียว (แถวเรียงตามใบนับของแต่ละ process ต่อกัน)
+    const filters = (prefill && prefill.filters) || [stockProcessFilter];
+    const rows = filters.flatMap(f => buildCountSheetRows(f).map(r => ({ ...r, sheetFilter: f })));
     if (rows.length === 0) { showToast('ไม่มี Model ในแท็บนี้', 'info'); return; }
+    const titleLabel = filters.map(countSheetLabel).join(', ');
 
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay count-entry-overlay';
     overlay.id = 'countEntryOverlay';
-    let lastGroup = null;
+    let lastGroup = null, lastFilter = null;
     const bodyHtml = rows.map((r, i) => {
         let html = '';
+        if (filters.length > 1 && r.sheetFilter !== lastFilter) { lastFilter = r.sheetFilter; lastGroup = null; html += `<tr class="ce-proc"><td colspan="${cols}">${countSheetLabel(r.sheetFilter)}</td></tr>`; }
         if (r.groupId !== lastGroup) { lastGroup = r.groupId; html += `<tr class="ce-grp"><td colspan="${cols}">${escapeHtml(r.groupLabel)}</td></tr>`; }
         const hasLast = r.stockRec.value !== '' && r.stockRec.value != null;
         const lastNum = parseFloat(r.stockRec.value) || 0;
@@ -1847,8 +1879,8 @@ function openStockCountEntry(prefill = null) {
     overlay.innerHTML = `
         <div class="count-entry-box">
             <div class="ce-head">
-                <div><div class="ce-title"><i class="fas ${scanned ? 'fa-file-import' : 'fa-keyboard'}"></i> ${scanned ? 'ตรวจผลอ่านใบนับ' : 'กรอกจากใบนับ'} — ${countSheetLabel(filter)}</div>
-                ${scanned ? `<div class="ce-sub ce-scan-note">อ่านจากใบสแกนหน้า ${prefill.pages.join(', ')} แล้ว — เทียบตัวเลขกับรูปลายมือในแต่ละแถว ช่องสีเหลืองให้ตรวจเป็นพิเศษ</div>` : ''}
+                <div><div class="ce-title"><i class="fas ${scanned ? 'fa-file-import' : 'fa-keyboard'}"></i> ${scanned ? 'ตรวจผลอ่านใบนับ' : 'กรอกจากใบนับ'} — ${escapeHtml(titleLabel)}</div>
+                ${scanned ? `<div class="ce-sub ce-scan-note">อ่านจากใบสแกน ${escapeHtml(prefill.pages.join(', '))} แล้ว — เทียบตัวเลขกับรูปลายมือในแต่ละแถว ช่องสีเหลืองให้ตรวจเป็นพิเศษ</div>` : ''}
                 <div class="ce-sub">พิมพ์ตัวเลขแล้วกด <span class="kbd">Enter</span> ลงบรรทัดถัดไป · <span class="kbd">↑</span><span class="kbd">↓</span> เลื่อนขึ้นลง · ช่องที่เว้นว่าง = ใช้ค่าเดิม</div></div>
                 <div class="ce-progress"><span id="ceCount">0 / ${rows.length}</span><div class="ce-bar"><i id="ceBar"></i></div></div>
             </div>
@@ -1871,21 +1903,26 @@ function openStockCountEntry(prefill = null) {
 
     // ค่าที่อ่านจากสแกนแล้วไม่มั่นใจ — ผู้ใช้แก้ช่องนั้นเองเมื่อไหร่ถือว่าตรวจแล้ว เลิกเตือน
     const uncertain = new Set(Object.keys(pre).filter(k => pre[k].uncertain).map(Number));
+    // แถวที่ระบบไม่เติมให้ (ระบายช่องแต่ช่องแก้ไขไม่ครบ ฯลฯ) — ต้องดูรูปแล้วกรอกเอง
+    const manual = new Set(Object.keys(pre).filter(k => pre[k].manual).map(Number));
     const refresh = () => {
-        let filled = 0, invalid = 0, odd = 0;
+        let filled = 0, invalid = 0, odd = 0, needManual = 0;
         inputs.forEach((inp, i) => {
             const r = rows[i];
             const diffTd = inp.closest('tr').querySelector('.ce-diff');
             const p = parseCountValue(inp.value);
-            inp.classList.remove('done', 'odd', 'bad');
+            inp.classList.remove('done', 'odd', 'bad', 'need');
             diffTd.innerHTML = '';
-            if (p.empty) return;
+            if (p.empty) {
+                if (manual.has(i)) { needManual++; inp.classList.add('need'); diffTd.innerHTML = `<span class="ce-chip bad">${escapeHtml(pre[i].msg || 'ดูรูปแล้วกรอกเอง')}</span>`; }
+                return;
+            }
             if (p.invalid) { invalid++; inp.classList.add('bad'); diffTd.innerHTML = '<span class="ce-chip bad">ต้องเป็นตัวเลข</span>'; return; }
             filled++;
             const hasLast = r.stockRec.value !== '' && r.stockRec.value != null;
             if (uncertain.has(i)) {
                 odd++; inp.classList.add('odd');
-                diffTd.innerHTML = '<span class="ce-chip">อ่านลายมือไม่ชัด — ตรวจอีกที</span>';
+                diffTd.innerHTML = `<span class="ce-chip">${escapeHtml((pre[i] && pre[i].msg) || 'อ่านลายมือไม่ชัด — ตรวจอีกที')}</span>`;
             } else if (hasLast && isOddCount(p.num, r.currentStock)) {
                 odd++; inp.classList.add('odd');
                 diffTd.innerHTML = `<span class="ce-chip">ต่างจากครั้งก่อนมาก — ตรวจอีกที</span>`;
@@ -1901,7 +1938,9 @@ function openStockCountEntry(prefill = null) {
         overlay.querySelector('#ceBar').style.width = `${Math.round(filled / rows.length * 100)}%`;
         saveBtn.disabled = filled === 0 || invalid > 0;
         saveBtn.innerText = filled > 0 ? `บันทึก ${filled} รายการ` : 'บันทึก';
-        overlay.querySelector('#ceWarn').innerText = invalid > 0 ? `มี ${invalid} ช่องที่ไม่ใช่ตัวเลข` : odd > 0 ? `มี ${odd} รายการที่ควรตรวจ (ยังบันทึกได้)` : '';
+        overlay.querySelector('#ceWarn').innerText = invalid > 0 ? `มี ${invalid} ช่องที่ไม่ใช่ตัวเลข`
+            : needManual > 0 ? `มี ${needManual} แถวที่ต้องกรอกเอง (สีแดง)${odd ? ` · ${odd} รายการควรตรวจ` : ''}`
+            : odd > 0 ? `มี ${odd} รายการที่ควรตรวจ (ยังบันทึกได้)` : '';
     };
 
     const focusAt = (i) => {
@@ -2573,6 +2612,8 @@ function updateAdminUI() {
         if (editGroupDivider) editGroupDivider.style.display = 'none';
         if (shortcutsHintBtn) shortcutsHintBtn.style.display = 'none';
     }
+    if (!isAdmin) structMode = false;
+    applyViewPrefs();
     const loginHint = document.getElementById('sidebarLoginHint');
     if (loginHint) loginHint.style.display = currentUser ? 'none' : 'flex';
     updateUndoRedoBtnUI();
@@ -2849,7 +2890,7 @@ function generateTable() {
         const tdHrsLabel = document.createElement('td'); tdHrsLabel.className = 'col-model hrs-label';
         tdHrsLabel.colSpan = labelCols;
         tdHrsLabel.style.borderTop = "1px solid var(--border-color)";
-        tdHrsLabel.innerHTML = '<strong><i class="fas fa-clock"></i> Hrs/Day (ทั้ง process)</strong>';
+        tdHrsLabel.innerHTML = `<span title="ชั่วโมงทำงานต่อวันของทั้ง process (0 = วันหยุด)">${t('hrs_label')}</span>`;
         trHrs.appendChild(tdHrsLabel);
 
         for (let i = 0; i < viewDays; i++) {
@@ -2890,6 +2931,7 @@ function generateTable() {
             <i class="fas fa-chevron-${collapsed ? 'right' : 'down'} grp-chevron no-print"></i>
             <span class="grp-name">${groupName}</span>
             <span class="grp-meta">${rowCount} Model${emptyNote}</span>
+            <span class="grp-param-text">· OA ${p.oa}% · MCT ${p.mct}</span>
             ${isAdmin ? `<span class="grp-admin no-print">
                 <button class="btn-edit-type" onclick="editGroup('${groupId}')"><i class="fas fa-pen"></i> แก้ไขประเภท</button>
                 <label>OA% <input type="number" step="1" value="${p.oa}" onchange="updateParam('${groupId}', 'oa', this.value)"></label>
@@ -2992,21 +3034,23 @@ function generateTable() {
 
                 // คอมเมนต์ประจำช่อง (เหมือน note ใน Excel) — ติดไปด้วยตอนพิมพ์
                 const comment = cellComments[storageKey];
-                if (comment || isAdmin) {
+                const editComment = async (e) => {
+                    e.preventDefault(); e.stopPropagation();
+                    const val = await showPromptModal(`คอมเมนต์ — ${displayName} (${formatDateHeader(d)})`, cellComments[storageKey] || '', { multiline: true, confirmLabel: 'บันทึก' });
+                    if (val === null) return;
+                    if (val.trim()) cellComments[storageKey] = val.trim(); else delete cellComments[storageKey];
+                    markKeyDirty('cellComments', storageKey); generateTable();
+                };
+                // จุดคอมเมนต์โชว์เฉพาะช่องที่มีคอมเมนต์ — เพิ่มคอมเมนต์ใหม่ด้วยคลิกขวาที่ช่อง (Admin)
+                if (comment) {
                     let dot = document.createElement('span');
-                    dot.className = 'comment-dot' + (comment ? ' has-comment' : ' no-print');
-                    dot.title = comment || 'เพิ่มคอมเมนต์';
-                    if (isAdmin) {
-                        dot.onclick = async (e) => {
-                            e.stopPropagation();
-                            const val = await showPromptModal(`คอมเมนต์ — ${displayName} (${formatDateHeader(d)})`, cellComments[storageKey] || '', { multiline: true, confirmLabel: 'บันทึก' });
-                            if (val === null) return;
-                            if (val.trim()) cellComments[storageKey] = val.trim(); else delete cellComments[storageKey];
-                            markKeyDirty('cellComments', storageKey); generateTable();
-                        };
-                    }
+                    dot.className = 'comment-dot has-comment';
+                    dot.title = comment;
+                    if (isAdmin) dot.onclick = editComment;
                     td.appendChild(dot);
                 }
+                // คลิกขวาเพิ่มคอมเมนต์เฉพาะในโหมด "จัดการ Model/กลุ่ม" — โหมดปกติปล่อยเมนูคลิกขวาของเบราว์เซอร์ไว้ (วางจาก Excel ได้)
+                if (isAdmin) td.oncontextmenu = (e) => { if (document.body.classList.contains('struct-mode')) editComment(e); };
                 if (comment) {
                     let commentText = document.createElement('span');
                     commentText.className = 'cell-comment-text';
@@ -3143,6 +3187,8 @@ function calcTotals() {
             if (span && span.classList.contains('cell-pcs-text')) {
                 if (!isNaN(val) && val > 0 && dayHrs > 0) span.innerText = calcPcs(val, p.oa, p.mct, dayHrs).toLocaleString();
                 else span.innerText = '';
+                // ตัวเลขชิ้นซ่อนเป็นค่าเริ่มต้น — ชี้เมาส์ที่ช่องแล้วเห็นใน tooltip
+                inp.title = span.innerText ? `${span.innerText} ${t('pcs_unit')}` : '';
             }
         });
     });
